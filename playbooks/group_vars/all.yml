@@ -6,8 +6,9 @@
 # Elles alimentent les origines autorisees CORS/CSRF de Share et d'ADW : une URL
 # absente d'ici donne une IHM Share cassee (appels bloques par le navigateur).
 acs_play_known_urls:
-  - "http://web-ged-pr01"
   - "http://10.75.0.114"
+  - "http://web-ger-pr01"
+  - "http://web-ger-pr01.rivp-groupe.net"
 acs_play_major_version: 25
 
 acs_play_default_java_version: 17.0.18+8
@@ -88,9 +89,11 @@ acs_play_repository_use_custom_keystores: false
 acs_play_use_ssl: false
 # Hote de reference : sert a construire alfresco.host / share.host /
 # aos.baseUrlOverwrite, donc les liens generes par le repository.
-# NB: nom temporaire. S'il ne resout pas en DNS depuis les postes clients,
-# basculer sur "10.75.0.114" (l'IP est deja dans acs_play_known_urls).
-acs_play_fqdn_alfresco: "web-ged-pr01"
+# On prend l'IP par defaut : elle est certaine et sans dependance DNS, alors que
+# le nom est temporaire (hostname systeme = web-ger-pr01-rivp-groupe-net).
+# Basculer sur le nom DNS definitif des qu'il est connu et qu'il resout depuis
+# les postes clients -- il est deja autorise dans acs_play_known_urls.
+acs_play_fqdn_alfresco: "10.75.0.114"
 
 ansible_installation_status_file: "/opt/alfresco/.ansible_alfresco_components.status"
 autogen_unsecure_secrets: false

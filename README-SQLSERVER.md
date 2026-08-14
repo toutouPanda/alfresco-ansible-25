@@ -7,7 +7,7 @@ Fork du playbook officiel [Alfresco/alfresco-ansible-deployment](https://github.
 
 | VM | Adresse | Composants |
 |----|---------|-----------|
-| **VM1 — Ubuntu 22.04 / 24.04** | `10.75.0.114` — `web-ged-pr01` *(nom temporaire)* | Repository (Tomcat 10.1) · Share · ADW · Control Center · API Explorer · **Solr6 / Search Services 2.0.19** · ActiveMQ 5.18 · Transform Service (AIO + Router + SFS) · Nginx · OpenJDK 17 |
+| **VM1 — RHEL 9.8** | `10.75.0.114` — `web-ger-pr01` *(nom temporaire)* | Repository (Tomcat 10.1) · Share · ADW · Control Center · API Explorer · **Solr6 / Search Services 2.0.19** · ActiveMQ 5.18 · Transform Service (AIO + Router + SFS) · Nginx · OpenJDK 17 |
 | **VM2 — SQL Server (déjà en place)** | `sql-infra22pr01.rivp-groupe.net\ALFRESCO`<br>base `SQL_PRALFRESCO` | **Microsoft SQL Server 2019 / 2022** |
 
 Pas d'Elasticsearch, pas de PostgreSQL, pas de Sync Service, pas d'Audit Storage.
@@ -37,22 +37,50 @@ Pas d'Elasticsearch, pas de PostgreSQL, pas de Sync Service, pas d'Audit Storage
 - Service **SQL Server Browser** démarré + **UDP 1434** ouvert
   *(uniquement si `acs_sqlserver_port` est laissé vide — voir « Instance nommée » plus bas)*
 
-**VM Ubuntu** — 22.04 ou 24.04, minimum **16 Go RAM / 4 vCPU / 100 Go disque**, Python ≥ 3.11, accès Internet sortant (artifacts.alfresco.com + Maven Central)
+**VM applicative** — Red Hat Enterprise Linux **9.8** (présente dans la matrice
+supportée de `vars/acs25.yml` : RHEL/Rocky 8.9, 8.10, 9.3 → 9.8, Ubuntu 22.04/24.04),
+minimum **16 Go RAM / 4 vCPU / 100 Go disque**, Python ≥ 3.11, accès HTTPS sortant
+(voir « Flux réseau requis » plus bas)
 
 **Compte Alfresco** — identifiants Nexus Enterprise + fichier de licence `.lic`
+
+## Flux réseau requis (HTTPS/443 sortant depuis 10.75.0.114)
+
+Le pare-feu périmétrique filtre par **SNI** : le nom de domaine est lu en clair dans
+le `Client Hello` TLS et la session est réinitialisée si le nom n'est pas autorisé.
+Le flux TCP/443 lui-même est déjà ouvert.
+
+| Domaine | Sert à |
+|---|---|
+| `github.com` + `*.githubusercontent.com` | OpenJDK 17 Temurin (rôle `java`) |
+| `artifacts.alfresco.com` | ACS 25.3.2, Search Services 2.0.19, ADW, Control Center, transformers, AMPs |
+| `archive.apache.org` | Tomcat 10.1.55, ActiveMQ 5.18.7 |
+| `repo.maven.apache.org` | artefacts Maven |
+| `pypi.org` + `files.pythonhosted.org` | `pipenv install --deploy` |
+| `galaxy.ansible.com` | `ansible-galaxy install -r requirements.yml` |
+
+Test de contrôle depuis la VM (code HTTP = autorisé, `curl: (35)` = filtré) :
+
+```bash
+for h in github.com artifacts.alfresco.com archive.apache.org repo.maven.apache.org pypi.org galaxy.ansible.com; do printf "%-40s " "$h"; curl -sS -o /dev/null -w "%{http_code}
+" --max-time 8 "https://$h" 2>&1 | tail -1; done
+```
 
 ---
 
 # Étapes minimales d'installation
 
-## 1. Préparer la VM Ubuntu
+## 1. Préparer la VM RHEL 9
 
 ```bash
-sudo apt-get update
-sudo apt-get install -y python3 python3-pip pipenv git unzip
+sudo dnf install -y python3.11 python3.11-pip git unzip
 ```
 
-## 2. Récupérer ce playbook sur la VM Ubuntu
+```bash
+pip3.11 install --user pipenv
+```
+
+## 2. Récupérer ce playbook sur la VM
 
 ```bash
 cd ~ && unzip alfresco-ansible-25.3.zip && cd alfresco-ansible-25.3
@@ -135,7 +163,7 @@ active `ALLOW_SNAPSHOT_ISOLATION` (obligatoire), crée le login/user `alfresco` 
 
 ## 8. Vérifier la connectivité puis déployer
 
-Depuis la VM Ubuntu, contrôler que SQL Server est joignable. Le check intégré du
+Depuis la VM applicative, contrôler que SQL Server est joignable. Le check intégré du
 playbook **ne teste pas** la base quand elle est externe, donc à faire à la main :
 
 ```bash
