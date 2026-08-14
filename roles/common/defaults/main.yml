@@ -1,0 +1,148 @@
+---
+# defaults file for roles/common
+binaries_folder: /opt/alfresco
+config_folder: /etc/opt/alfresco
+data_folder: /var/opt/alfresco
+logs_folder: /var/log/alfresco
+
+# Default home for components
+ats_home: "{{ binaries_folder }}/transform-service"
+
+# Due to https://github.com/ansible/ansible/issues/64957
+# Using default() filter for hostvars 1st level key requires ansible 2.10+
+nginx_host: >-
+  {{ groups['nginx']
+  | default([])
+  | map('extract', hostvars, ['ansible_default_ipv4', 'address'])
+  | first
+  | default('127.0.0.1') }}
+repo_hosts: |
+  {{ groups['repository']
+  | map('extract', hostvars)
+  | json_query('[].
+    {
+      inventory_name: inventory_hostname ,
+      local_addr: ansible_default_ipv4.address,
+      repository_cluster_keepoff: repository_cluster_keepoff
+    }')
+  }}
+repo_host: >-
+  {{ repo_hosts[0].local_addr | default(repo_hosts[0].inventory_name) }}
+activemq_host: "{% if groups.external_activemq | default(False) %}\
+  {{- groups.external_activemq | first -}}\
+  {% else %}\
+  {{- groups.activemq | map('extract', hostvars, ['ansible_default_ipv4', 'address']) | first -}}\
+  {% endif %}"
+activemq_transport: >-
+  {{ groups.external_activemq
+  | default([])
+  | map('extract', hostvars, ['activemq_transport'])
+  | first
+  | default('tcp') }}
+activemq_protocol: openwire
+solr_host: >-
+  {{ groups['search']
+  | default([])
+  | map('extract', hostvars, ['ansible_default_ipv4', 'address'])
+  | first
+  | default('127.0.0.1') }}
+ats_tengine_aio_host: >-
+  {{ groups['transformers']
+  | default([])
+  | map('extract', hostvars, ['ansible_default_ipv4', 'address'])
+  | first
+  | default('127.0.0.1') }}
+sfs_host: >-
+  {{ groups['transformers']
+  | default([])
+  | map('extract', hostvars, ['ansible_default_ipv4', 'address'])
+  | first
+  | default('127.0.0.1') }}
+trouter_host: >-
+  {{ groups['transformers']
+  | default([])
+  | map('extract', hostvars, ['ansible_default_ipv4', 'address'])
+  | first
+  | default('127.0.0.1') }}
+acc_host: >-
+  {{ groups['acc']
+  | default([])
+  | map('extract', hostvars, ['ansible_default_ipv4', 'address'])
+  | first
+  | default('127.0.0.1') }}
+adw_host: >-
+  {{ groups['adw']
+  | default([])
+  | map('extract', hostvars, ['ansible_default_ipv4', 'address'])
+  | first
+  | default('127.0.0.1') }}
+sync_host: >-
+  {{ groups['syncservice']
+  | default([])
+  | map('extract', hostvars, ['ansible_default_ipv4', 'address'])
+  | first
+  | default('127.0.0.1') }}
+elasticsearch_host: "{% if groups.external_elasticsearch | default(False) %}\
+  {{- groups.external_elasticsearch | first -}}\
+  {% else %}\
+  {{- groups.elasticsearch | default([]) | map('extract', hostvars, ['ansible_default_ipv4', 'address']) | first | default('127.0.0.1') -}}\
+  {% endif %}"
+elasticsearch_protocol: >-
+  {{- groups.external_elasticsearch | default([]) | map('extract', hostvars, ['elasticsearch_protocol']) | first | default('http') -}}
+identity_host: "{% if groups.external_identity | default(False) %}\
+  {{- groups.external_identity | first -}}\
+  {% else %}\
+  {{- groups.identity | default([]) | map('extract', hostvars, ['ansible_default_ipv4', 'address']) | first | default('127.0.0.1') -}}\
+  {% endif %}"
+
+ports_cfg:
+  nginx:
+    http: 80
+    https: 443
+  acc:
+    http: 8881
+  adw:
+    http: 8880
+  activemq:
+    openwire: "{% if groups.external_activemq | default(False) %}\
+      {{- groups.external_activemq | map('extract', hostvars, ['activemq_port']) | first | default(61616) -}}\
+      {% else %}\
+      {{- ports.activemq.openwire | default(61616) -}}\
+      {% endif %}"
+  repository:
+    http: 8080
+    https: 8443
+    shutdown: 8005
+  transformers:
+    tengine: 8090
+    trouter: 8095
+  sfs:
+    http: 8099
+  search:
+    http: 8983
+  sync:
+    http: 9090
+    admin: 9093
+  elasticsearch:
+    http: "{{- groups.external_elasticsearch | default([]) | map('extract', hostvars, ['elasticsearch_port']) | first | default('9200') -}}"
+  identity:
+    http: "{{- groups.external_identity | default([]) | map('extract', hostvars, ['identity_port']) | first | default('8082') -}}"
+
+# Default download location of necessary artefacts
+download_location: /tmp/ansible_artefacts
+
+os_fallback:
+  - ../vars/{{ ansible_distribution }}{{ ansible_distribution_version }}.yml
+  - ../vars/{{ ansible_distribution }}{{ ansible_distribution_major_version }}.yml
+  - ../vars/{{ ansible_distribution }}.yml
+  - ../vars/{{ ansible_os_family }}.yml
+  - ../vars/{{ ansible_system }}.yml
+
+os_family_yml: "{{ ansible_os_family }}.yml"
+os_distribution_yml: "{{ ansible_distribution }}.yml"
+os_version_yml: "{{ ansible_distribution }}{{ ansible_distribution_major_version }}.yml"
+
+nexus_user: "{{ lookup('env', 'NEXUS_USERNAME') | default(null) }}"
+nexus_password: "{{ lookup('env', 'NEXUS_PASSWORD') | default(null) }}"
+
+bssrf_protection_enabled: false

@@ -1,0 +1,31 @@
+---
+dependency:
+  name: galaxy
+driver:
+  name: docker
+platforms:
+  - name: nginx-instance
+    image: $MOLECULE_ROLE_IMAGE
+    dockerfile: ../../../../tests/molecule/Dockerfile-noprivs.j2
+    command: "/lib/systemd/systemd"
+    privileged: true
+    tmpfs:
+      - /run
+      - /run/lock
+      - /tmp
+    volume_mounts:
+      - "/sys/fs/cgroup:/sys/fs/cgroup:ro"
+    groups:
+      - repository
+      - search
+      - syncservice
+      - adw
+provisioner:
+  name: ansible
+  env:
+    ANSIBLE_ROLES_PATH: "../../../../roles:~/.ansible/roles"
+  inventory:
+    links:
+      host_vars: host_vars
+verifier:
+  name: ansible

@@ -1,0 +1,29 @@
+name: Publish docs
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - "docs/**"
+      - .github/workflows/docs.yml
+  pull_request:
+    branches:
+      - master
+    paths:
+      - "docs/**"
+      - .github/workflows/docs.yml
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  publish:
+    uses: Alfresco/jekyll-build-tools/.github/workflows/jekyll-publish.yml@2d1b48e5abd8d2defeda1d0adc2096a8e29d6cda
+    with:
+      working-directory: docs
+      publish: ${{ github.event_name == 'push' && github.ref_name == 'master' }}
+      validate-html: true
+      validate-html-args: --ignore-urls "/linux.die.net/,https://www.vagrantup.com/downloads"

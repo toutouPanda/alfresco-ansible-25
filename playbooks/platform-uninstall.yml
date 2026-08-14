@@ -1,0 +1,202 @@
+---
+- name: Include vars based on acs major version
+  ansible.builtin.import_playbook: include-vars.yml
+
+- name: Clean Database
+  hosts: database
+  become: true
+  ignore_unreachable: true
+  tasks:
+    - name: Removing the Packages
+      ansible.builtin.package:
+        name: postgresql
+        state: absent
+        autoremove: true
+
+- name: Clean activeMQ
+  hosts: activemq
+  become: true
+  ignore_unreachable: true
+  handlers:
+    - name: Load Handlers
+      ansible.builtin.import_tasks: "handlers/uninstall-handlers.yml"
+  tasks:
+    - name: Stopping activemq service
+      register: svc_stop
+      failed_when: >-
+        svc_stop.failed
+        and 'Could not find the requested service' not in svc_stop.msg
+      ansible.builtin.service:
+        name: activemq
+        state: stopped
+        enabled: false
+
+    - name: Removing the folders
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      with_items:
+        - "/etc/systemd/system/activemq.service"
+        - "{{ activemq_home | default('/opt/apache-activemq-{{ acs_play_activemq_version }}') }}"
+        - "{{ java_home | default('/opt/openjdk-{{ acs_play_java_core }}') }}"
+        - "{{ binaries_folder | default('/opt/alfresco') }}"
+        - "{{ data_folder | default('/var/opt/alfresco') }}"
+        - "{{ logs_folder | default('/var/log/alfresco') }}"
+        - "{{ download_location | default('/tmp/ansible_artefacts') }}"
+      notify: Reload systemd
+
+- name: Clean ATS
+  hosts: transformers
+  become: true
+  ignore_unreachable: true
+  handlers:
+    - name: Load Handlers
+      ansible.builtin.import_tasks: "handlers/uninstall-handlers.yml"
+  tasks:
+    - name: Stopping transform
+      register: svc_stop
+      failed_when: >-
+        svc_stop.failed
+        and 'Could not find the requested service' not in svc_stop.msg
+      ansible.builtin.service:
+        name: "{{ item }}"
+        state: stopped
+        enabled: false
+      with_items:
+        - "alfresco-transform-router"
+        - "alfresco-tengine-aio"
+        - "alfresco-shared-fs"
+
+    - name: Removing the Packages
+      ansible.builtin.package:
+        name: "{{ item }}"
+        state: absent
+        autoremove: true
+      with_items:
+        - ImageMagick
+        - libreoffice
+
+    - name: Removing the folders
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      with_items:
+        - "/etc/systemd/system/alfresco-transform-router.service"
+        - "/etc/systemd/system/alfresco-tengine-aio.service"
+        - "/etc/systemd/system/alfresco-shared-fs.service"
+        - "{{ java_home | default('/opt/openjdk-{{ acs_play_java_core }}') }}"
+        - "{{ binaries_folder | default('/opt/alfresco') }}"
+        - "{{ data_folder | default('/var/opt/alfresco') }}"
+        - "{{ logs_folder | default('/var/log/alfresco') }}"
+        - "{{ download_location | default('/tmp/ansible_artefacts') }}"
+      notify: Reload systemd
+
+- name: Clean Search Service
+  hosts: search
+  become: true
+  ignore_unreachable: true
+  handlers:
+    - name: Load Handlers
+      ansible.builtin.import_tasks: "handlers/uninstall-handlers.yml"
+  tasks:
+    - name: Stopping Search
+      register: svc_stop
+      failed_when: >-
+        svc_stop.failed
+        and 'Could not find the requested service' not in svc_stop.msg
+      ansible.builtin.service:
+        name: alfresco-search
+        state: stopped
+        enabled: false
+
+    - name: Removing the folders
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      with_items:
+        - "/etc/systemd/system/alfresco-search.service"
+        - "{{ java_home | default('/opt/openjdk-{{ acs_play_java_core }}') }}"
+        - "{{ binaries_folder | default('/opt/alfresco') }}"
+        - "{{ data_folder | default('/var/opt/alfresco') }}"
+        - "{{ logs_folder | default('/var/log/alfresco') }}"
+        - "{{ download_location | default('/tmp/ansible_artefacts') }}"
+      notify: Reload systemd
+
+- name: Clean SyncService
+  hosts: syncservice
+  become: true
+  ignore_unreachable: true
+  handlers:
+    - name: Load Handlers
+      ansible.builtin.import_tasks: "handlers/uninstall-handlers.yml"
+  tasks:
+    - name: Stopping Sync
+      register: svc_stop
+      failed_when: >-
+        svc_stop.failed
+        and 'Could not find the requested service' not in svc_stop.msg
+      ansible.builtin.service:
+        name: alfresco-sync
+        state: stopped
+        enabled: false
+
+    - name: Removing the folders
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      with_items:
+        - "/etc/systemd/system/alfresco-sync.service"
+        - "{{ java_home | default('/opt/openjdk-{{ acs_play_java_core }}') }}"
+        - "{{ binaries_folder | default('/opt/alfresco') }}"
+        - "{{ data_folder | default('/var/opt/alfresco') }}"
+        - "{{ logs_folder | default('/var/log/alfresco') }}"
+        - "{{ download_location | default('/tmp/ansible_artefacts') }}"
+      notify: Reload systemd
+
+- name: Clean proxy
+  hosts: nginx
+  become: true
+  ignore_unreachable: true
+  tasks:
+    - name: Removing the Packages
+      ansible.builtin.package:
+        name: nginx
+        state: absent
+        autoremove: true
+
+- name: Clean ACS
+  hosts: repository
+  become: true
+  ignore_unreachable: true
+  handlers:
+    - name: Load Handlers
+      ansible.builtin.import_tasks: "handlers/uninstall-handlers.yml"
+  tasks:
+    - name: Stopping content services
+      register: svc_stop
+      failed_when: >-
+        svc_stop.failed
+        and 'Could not find the requested service' not in svc_stop.msg
+      ansible.builtin.service:
+        name: alfresco-content
+        state: stopped
+        enabled: false
+
+    - name: Unmount Alfresco Content
+      ansible.posix.mount:
+        path: /var/opt/alfresco/content-services/content
+        state: absent
+
+    - name: Removing the folders
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      with_items:
+        - "/etc/systemd/system/alfresco-content.service"
+        - "{{ tomcat_home_prefix | default('/opt/apache-tomcat') }}"
+        - "{{ java_home | default('/opt/openjdk-{{ acs_play_java_core }}') }}"
+        - "{{ binaries_folder | default('/opt/alfresco') }}"
+        - "{{ logs_folder | default('/var/log/alfresco') }}"
+        - "{{ download_location | default('/tmp/ansible_artefacts') }}"
+        - "/tmp/Alfresco"
+      notify: Reload systemd

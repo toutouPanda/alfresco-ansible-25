@@ -1,0 +1,44 @@
+# Download artifacts from flaky mirrors and cache them on the controller for later use.
+# Particularly useful when running on CI or nodes with limited internet access.
+# Run with `ansible-playbook -i inventory_local.yml prefetch-artifacts.yml`
+- name: Download and cache artifacts on the controller
+  hosts: localhost
+  gather_facts: true
+  tasks:
+    - name: Set path for local download
+      ansible.builtin.stat:
+        path: "{{ lookup('env', 'GITHUB_WORKSPACE') | default(lookup('env', 'PWD'), True) }}"
+      register: local_path
+
+    - name: Include common vars
+      ansible.builtin.include_vars: "{{ local_path.stat.path }}/roles/common/{{ item }}/main.yml"
+      loop: ["defaults", "vars"]
+
+    - name: Include activemq vars
+      ansible.builtin.include_vars: "{{ local_path.stat.path }}/roles/activemq/{{ item }}/main.yml"
+      loop: ["defaults", "vars"]
+
+    - name: Include tomcat vars
+      ansible.builtin.include_vars: "{{ local_path.stat.path }}/roles/tomcat/{{ item }}/main.yml"
+      loop: ["defaults", "vars"]
+
+    - name: Create download location
+      ansible.builtin.file:
+        path: "{{ local_path.stat.path }}/downloads"
+        state: directory
+        mode: "0755"
+      register: download_path
+
+    - name: Download ActiveMQ archive
+      ansible.builtin.get_url:
+        url: "{{ activemq_url }}"
+        checksum: "{{ activemq_checksum }}"
+        dest: "{{ download_path.path }}/apache-activemq-{{ activemq_version }}-bin.tar.gz"
+        mode: "0644"
+
+    - name: Download Tomcat archive
+      ansible.builtin.get_url:
+        url: "{{ tomcat_artifact_url }}"
+        checksum: "{{ tomcat_artifact_checksum }}"
+        dest: "{{ download_path.path }}/apache-tomcat-{{ tomcat_version }}.tar.gz"
+        mode: "0644"

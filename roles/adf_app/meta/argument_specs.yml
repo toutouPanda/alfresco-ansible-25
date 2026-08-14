@@ -1,0 +1,61 @@
+---
+argument_specs:
+  main:
+    short_description: Main entrypoint for the adf_app role
+    options:
+      adf_app_name:
+        type: str
+        required: true
+        description: |
+          Unique identifier for the app that will be used to create config files and directories.
+      adf_app_context:
+        type: str
+        default: /
+        description: |
+          The context path where the app will be reachable by users once exposed
+          thru the reverse proxy. This is necessary to configure app.config.json
+          appropriately.
+      adf_app_port:
+        type: int
+        default: 8080
+        description: |
+          The port from where the app will be reachable by the reverse proxy.
+          Make sure it's unique otherwise you can't install more than one adf
+          app on the same host.
+      adf_app_src_archive:
+        type: str
+        required: true
+        description: |
+          URL of the archive that contains the adf app.
+      adf_app_src_username:
+        type: str
+        description: |
+          Username to use when downloading the ADF archive
+        default: null
+      adf_app_src_password:
+        type: str
+        description: |
+          Password to use when downloading the ADF archive
+        default: null
+      adf_app_src_checksum:
+        type: str
+        required: true
+        description: |
+          URL of the checksum of the archive that contains the adf app or the sha1 checksum.
+      adf_app_version:
+        type: str
+        required: true
+        description: |
+          The version of the adf app, mainly to detect when we need to redeploy
+          it.
+      adf_app_download_timeout:
+        type: int
+        default: 90
+        description: |
+          Timeout in seconds to download the ADF app distribution
+      adf_app_configuration:
+        type: dict
+        required: false
+        default: {}
+        description: |
+          Optional adf apps parameters to populate app.config.json

@@ -1,0 +1,16 @@
+---
+transformers_imagemagick_home: "/usr/lib64/ImageMagick-{{ transformers_imagemagick_version.split('-')[0] }}"
+
+transformers_utils:
+  - cairo
+  - cups-libs
+  - libSM
+  - unzip
+  - which
+  - fontconfig
+  - dejavu-fonts-common
+  - fontpackages-filesystem
+  - freetype
+  - libpng
+  - dejavu-sans-fonts
+  - perl-Image-ExifTool

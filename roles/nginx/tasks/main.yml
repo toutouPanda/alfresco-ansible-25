@@ -1,0 +1,33 @@
+---
+- name: Include OS specific variables
+  ansible.builtin.include_vars: "{{ item }}"
+  loop: "{{ lookup('first_found', os_fallback, errors='ignore', wantlist=True) }}"
+
+- name: Install & configure NGINX reverse proxy
+  become: true
+  block:
+    - name: Ensure nginx is installed
+      ansible.builtin.package:
+        name: "{{ nginx_package_name }}"
+        state: present
+      notify: Enable-nginx
+
+    - name: Copy nginx configuration in place
+      ansible.builtin.template:
+        src: "{{ nginx_conf_template }}"
+        dest: "{{ nginx_conf_file_path }}"
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart-nginx
+
+    - name: Set httpd_can_network_connect flag on and keep it persistent across reboots
+      ansible.posix.seboolean:
+        name: httpd_can_network_connect
+        state: true
+        persistent: true
+      when: ansible_selinux.status == "enabled"
+
+- name: Vhosts configuration
+  ansible.builtin.include_tasks: vhosts.yml
+  when: nginx_setup_vhosts

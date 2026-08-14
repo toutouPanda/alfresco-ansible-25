@@ -1,0 +1,91 @@
+name: molecule_integration_ec2
+description: Run molecule integration tests on EC2 instances
+inputs:
+  matrix_name:
+    description: 'Name of a molecule scenario'
+    required: true
+  matrix_vars:
+    description: 'Variables file to use'
+    required: true
+  matrix_desc:
+    description: 'Description used as a name for a job'
+    required: true
+  nexus_username:
+    description: 'Nexus username passed from secrets'
+    required: true
+  nexus_password:
+    description: 'Nexus password passed from secrets'
+    required: true
+  aws_region:
+    description: 'AWS region to use'
+    required: true
+  pat:
+    description: 'Github token passed from secrets'
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Python
+      uses: ./.github/actions/setup-python
+      id: setup-python
+
+    - name: Install python packages
+      uses: Alfresco/alfresco-build-tools/.github/actions/pipenv@8d76614b374e521d792b4a1c9827409960b66bae # v17.6.0
+      with:
+        python-version: ${{ steps.setup-python.outputs.python-version }}
+
+    - name: Install and cache ansible galaxy dependencies
+      uses: ./.github/actions/galaxy
+      with:
+        cache-name: enterprise
+
+    - name: Set BRANCH_NAME
+      uses: Alfresco/alfresco-build-tools/.github/actions/get-branch-name@8d76614b374e521d792b4a1c9827409960b66bae # v17.6.0
+      with:
+        sanitize: true
+        max-length: 20
+
+    - name: Setup workspace
+      uses: ./.github/actions/setup-workspace
+
+    - name: Cache downloads
+      uses: ./.github/actions/cache-downloads
+
+    - name: Generate unique id
+      shell: bash
+      run: echo "MOLECULE_IT_ID=$(date +%s%4N)" >> $GITHUB_ENV
+
+    - name: Set nexus credentials only when required
+      shell: bash
+      if: ${{ ! contains( inputs.matrix_desc, 'community' ) }}
+      run: |
+        echo "NEXUS_USERNAME=${{ inputs.nexus_username }}" >> $GITHUB_ENV
+        echo "NEXUS_PASSWORD=${{ inputs.nexus_password }}" >> $GITHUB_ENV
+
+    - name: Login to AWS
+      uses: aws-actions/configure-aws-credentials@ec61189d14ec14c8efccab744f656cffd0e33f37 # v6.1.0
+      with:
+        aws-region: ${{ inputs.aws_region }}
+        role-to-assume: arn:aws:iam::372466110691:role/AlfrescoCI/alfresco-cloud-deploy
+        role-session-name: ${{ github.event.repository.name }}-${{ github.run_id }}
+        role-duration-seconds: 5400
+
+    - name: Run tests
+      shell: bash
+      env:
+        MOLECULE_IT_SCENARIO: ${{ inputs.matrix_name }}
+        MOLECULE_IT_CONFIG: ${{ inputs.matrix_vars }}
+        CLONE_GITHUB_TOKEN: ${{ inputs.pat }}
+      run: ./tests/molecule_it/script.sh verify
+
+    - name: Cleanup tests
+      if: always()
+      env:
+        MOLECULE_IT_SCENARIO: ${{ inputs.matrix_name }}
+        MOLECULE_IT_CONFIG: ${{ inputs.matrix_vars }}
+      uses: nick-fields/retry@ad984534de44a9489a53aefd81eb77f87c70dc60 # v4.0.0
+      with:
+        timeout_minutes: 30
+        max_attempts: 3
+        retry_wait_seconds: 60
+        command: ./tests/molecule_it/script.sh destroy

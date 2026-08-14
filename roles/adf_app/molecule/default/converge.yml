@@ -1,0 +1,40 @@
+---
+- name: Converge
+  hosts: all
+  vars:
+    acc_v: 10.3.0
+    acc_id: alfresco-control-center
+    acc_repo: https://artifacts.alfresco.com/nexus/content/groups/public/org/alfresco
+    adw_v: 7.3.0
+    adw_id: alfresco-digital-workspace
+    adw_repo: https://artifacts.alfresco.com/nexus/content/groups/private/org/alfresco
+  tasks:
+    - name: "Install alfresco-digital-workspace"
+      vars:
+        adf_app_name: alfresco-digital-workspace
+        adf_app_port: 8881
+        adf_app_src_archive: >-
+          {{ '{0}/{1}/{2}/{1}-{2}.zip'.format(adw_repo, adw_id, adw_v) }}
+        adf_app_src_checksum: >-
+          {{ 'sha1:{0}/{1}/{2}/{1}-{2}.zip.sha1'.format(adw_repo, adw_id, adw_v) }}
+        adf_app_src_username: "{{ nexus_user }}"
+        adf_app_src_password: "{{ nexus_password }}"
+        adf_app_version: "{{ adw_v }}"
+        adf_app_configuration:
+          authType: OAUTH
+      ansible.builtin.include_role:
+        name: "adf_app"
+
+    - name: "Install alfresco-control-center"
+      vars:
+        adf_app_name: alfresco-control-center
+        adf_app_port: 8882
+        adf_app_src_archive: >-
+          {{ '{0}/{1}/{2}/{1}-{2}.zip'.format(acc_repo, acc_id, acc_v) }}
+        adf_app_src_checksum: >-
+          {{ 'sha1:{0}/{1}/{2}/{1}-{2}.zip.sha1'.format(acc_repo, acc_id, acc_v) }}
+        adf_app_version: "{{ acc_v }}"
+        adf_app_configuration:
+          authType: OAUTH
+      ansible.builtin.include_role:
+        name: "adf_app"

@@ -1,0 +1,14 @@
+name: setup-python
+description: Install python from .python-version file and cache with pipenv
+outputs:
+  python-version:
+    description: "The python version that was installed"
+    value: ${{ steps.setup-python.outputs.python-version }}
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+      id: setup-python
+      with:
+        python-version-file: '.python-version'
+        cache: 'pipenv'

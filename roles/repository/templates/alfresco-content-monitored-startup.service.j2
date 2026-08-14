@@ -1,0 +1,11 @@
+[Unit]
+Description=Alfresco Content Service with state monitoring
+After=alfresco-content.service
+BindsTo=alfresco-content.service
+
+[Service]
+Type=notify
+NotifyAccess=exec
+ExecStart={{ binaries_folder }}/alfresco-content-monitored-startup.sh
+TimeoutStartSec={{ repository_monitored_startup_timeout_seconds }}
+Environment=SVC=alfresco-content-probes

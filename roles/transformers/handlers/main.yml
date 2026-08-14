@@ -1,0 +1,22 @@
+---
+# handlers file for roles/transformers
+- name: >-
+    Wait for activemq on
+    {{ activemq_host }}:{{ ports_cfg.activemq[activemq_protocol] }}
+  listen: wait-for-activemq
+  ansible.builtin.wait_for:
+    host: "{{ activemq_host }}"
+    port: "{{ ports_cfg.activemq[activemq_protocol] }}"
+    timeout: 300
+    connect_timeout: 5
+
+- name: Enable-aio
+  become: true
+  ansible.builtin.service:
+    name: alfresco-tengine-aio
+    enabled: true
+    daemon_reload: true
+
+- name: Restart-aio
+  ansible.builtin.include_tasks:
+    file: restart.yml

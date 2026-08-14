@@ -1,0 +1,97 @@
+name: "docker integration"
+
+on:
+  workflow_call:
+    inputs:
+      scenario:
+        type: string
+        description: molecule scenario
+        required: false
+        default: "false"
+      os_distribution:
+        type: string
+        description: OS image to use for the container
+        required: false
+        default: rockylinux:9
+      galaxy_cache:
+        type: string
+        description: an identifier for the Ansible galaxy cache (e.g. calling workflow name)
+        required: false
+        default: ansible-galaxy
+      dtas_version:
+        type: string
+        description: git ref to use when cloning DTAS repo
+        required: false
+        default: master
+      dtas_additional_params:
+        type: string
+        description: additional parameters to pass to DTAS
+        required: false
+        default: ""
+      runner:
+        type: string
+        description: runner to use for the job
+        required: false
+        default: ubuntu-latest
+    secrets:
+      nexus_username:
+        required: false
+      nexus_password:
+        required: false
+      dtas_token:
+        required: false
+
+env:
+  DTAS_VERSION: ${{ inputs.dtas_version }}
+  DTAS_ADDITIONAL_PARAMS: ${{ inputs.dtas_additional_params }}
+  BUILD_NUMBER: ${{ github.run_id }}
+  PY_COLORS: 1
+  PYTHONUNBUFFERED: 1
+
+jobs:
+  docker_integration:
+    name: Test ${{ inputs.scenario }} scenario on ${{ inputs.os_distribution }}
+    runs-on: ${{ inputs.runner }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          # avoid auth conflict when cloning DTAS during verify step
+          persist-credentials: false
+
+      - name: Setup Python
+        uses: ./.github/actions/setup-python
+        id: setup-python
+
+      - name: Install python packages
+        uses: Alfresco/alfresco-build-tools/.github/actions/pipenv@v17.6.0
+        with:
+          python-version: ${{ steps.setup-python.outputs.python-version }}
+
+      - name: Install and cache ansible galaxy dependencies
+        uses: ./.github/actions/galaxy
+        with:
+          cache-name: ${{ inputs.galaxy_cache }}
+
+      - name: Setup workspace
+        uses: ./.github/actions/setup-workspace
+
+      - name: Cache downloads
+        uses: ./.github/actions/cache-downloads
+        with:
+          cache-name: ${{ inputs.galaxy_cache }}
+
+      - name: Disable unix-chkpwd AppArmor profile
+        run: |
+          if sudo aa-status --enabled 2>/dev/null; then
+            sudo ln -sf /etc/apparmor.d/unix-chkpwd /etc/apparmor.d/disable/
+            sudo apparmor_parser -R /etc/apparmor.d/unix-chkpwd 2>/dev/null || true
+          fi
+
+      - name: Run tests
+        env:
+          MOLECULE_ROLE_IMAGE: ${{ inputs.os_distribution }}
+          NEXUS_USERNAME: ${{ secrets.nexus_username }}
+          NEXUS_PASSWORD: ${{ secrets.nexus_password }}
+          CLONE_GITHUB_TOKEN: ${{ secrets.dtas_token }}
+        run: pipenv run molecule test -s ${{ inputs.scenario }}

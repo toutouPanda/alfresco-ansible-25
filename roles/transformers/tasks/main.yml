@@ -1,0 +1,141 @@
+---
+# tasks file for transformers
+- name: Include OS family variables
+  ansible.builtin.include_vars:
+    file: "{{ os_family_yml }}"
+
+- name: Include OS distribution variables
+  ansible.builtin.include_vars:
+    file: "{{ item }}"
+  with_first_found:
+    - files:
+      - "{{ os_distribution_yml }}"
+      skip: True
+
+- name: Include OS version variables
+  ansible.builtin.include_vars:
+    file: "{{ item }}"
+  with_first_found:
+    - files:
+      - "{{ os_version_yml }}"
+      skip: True
+
+- name: Configure Java keystore
+  ansible.builtin.include_role:
+    name: ../roles/java
+    tasks_from: keystores
+  when: transformers_ats_keystore
+  vars:
+    java_keystore: "{{ transformers_ats_keystore }}"
+
+- name: Include EL repositories
+  ansible.builtin.include_tasks: el_repos.yml
+  when: transformers_pkg_format == 'rpm'
+
+- name: ATS installation
+  become: true
+  block:
+    - name: Ensure a list of packages installed
+      ansible.builtin.package:
+        name: "{{ transformers_utils }}"
+        state: present
+
+    - name: Install optional ghostscript packages (AGPL)
+      ansible.builtin.package:
+        name: "{{ transformers_gs_packages }}"
+        state: present
+      when: transformers_include_ghostscript
+
+    - name: Create transform-services folder
+      ansible.builtin.file:
+        path: "{{ ats_home }}"
+        state: directory
+        mode: "0755"
+        owner: "{{ username }}"
+        group: "{{ group_name }}"
+
+    - name: Download alfresco-pdf-renderer-linux.tgz
+      ansible.builtin.get_url:
+        url: "{{ transformers_pdf_archive_url }}"
+        checksum: "{{ transformers_pdf_archive_checksum }}"
+        dest: "{{ download_location }}/alfresco-pdf-renderer-{{ transformers_pdf_version }}-linux.tgz"
+        owner: "{{ username }}"
+        group: "{{ group_name }}"
+        mode: "0644"
+
+    - name: Extract alfresco-pdf-renderer-linux.tgz
+      ansible.builtin.unarchive:
+        src: "{{ download_location }}/alfresco-pdf-renderer-{{ transformers_pdf_version }}-linux.tgz"
+        dest: "{{ ats_home }}"
+        remote_src: true
+        owner: "{{ username }}"
+        group: "{{ group_name }}"
+        creates: "{{ ats_home }}/alfresco-pdf-renderer"
+
+    - name: Download {{ transformers_aio_artifact_name }}-{{ transformers_aio_version }}.jar
+      ansible.builtin.get_url:
+        url: "{{ transformers_aio_archive_url }}"
+        dest: "{{ binaries_folder }}/transform-service/{{ transformers_aio_artifact_name }}-{{ transformers_aio_version }}.jar"
+        checksum: "{{ transformers_aio_archive_checksum }}"
+        owner: "{{ username }}"
+        group: "{{ group_name }}"
+        mode: 'u=rwx,g=rwx,o=rx'
+
+    - name: Create log file with correct permissions
+      ansible.builtin.file:
+        path: "{{ logs_folder }}/ats-ate-aio.log"
+        state: touch
+        mode: "0640"
+        owner: "{{ username }}"
+        group: "{{ group_name }}"
+        access_time: preserve
+        modification_time: preserve
+
+    - name: Add AIO config mTLS config file
+      ansible.builtin.template:
+        src: mtls.properties.j2
+        dest: "{{ binaries_folder }}/transform-service/tengine-mtls.properties"
+        owner: "{{ username }}"
+        group: "{{ group_name }}"
+        mode: "0600"
+      when: transformers_ats_keystore
+      notify:
+        - wait-for-activemq
+        - Restart-aio
+
+    - name: Delete deprecated startup script
+      ansible.builtin.file:
+        path: "{{ binaries_folder }}/ats-ate-aio.sh"
+        state: absent
+
+    - name: Add alfresco-tengine-aio service
+      ansible.builtin.template:
+        src: alfresco-tengine-aio.service.j2
+        dest: "/etc/systemd/system/alfresco-tengine-aio.service"
+        owner: "{{ username }}"
+        group: "{{ group_name }}"
+        mode: 'u=rw,g=rw,o=r'
+        force: true
+      notify:
+        - wait-for-activemq
+        - Enable-aio
+        - Restart-aio
+
+- name: Install Imagemagick
+  ansible.builtin.include_tasks: imagemagick.yml
+
+- name: Warning about lack of support for arm64 libreoffice
+  when: ansible_architecture == 'aarch64'
+  ansible.builtin.debug:
+    msg: "LibreOffice is not supported on arm64 architecture. Skipping installation."
+
+- name: Install LibreOffice
+  when: ansible_architecture == 'x86_64'
+  ansible.builtin.include_tasks: libreoffice.yml
+
+- name: Check if service restart is needed
+  ansible.builtin.debug:
+    msg: triggering service restart
+  when: java_needs_restart
+  changed_when: true
+  notify: Restart-aio

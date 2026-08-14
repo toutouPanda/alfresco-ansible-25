@@ -1,0 +1,168 @@
+---
+- name: Set path for local download
+  delegate_to: localhost
+  ansible.builtin.stat:
+    path: "{{ lookup('env', 'GITHUB_WORKSPACE') | default(lookup('env', 'PWD'), True) }}"
+  register: activemq_local_path
+
+- name: Create download location
+  delegate_to: localhost
+  ansible.builtin.file:
+    path: "{{ activemq_local_path.stat.path }}/downloads"
+    state: directory
+    mode: "0755"
+  register: activemq_download_path
+
+- name: Download ActiveMQ archive # noqa ignore-errors
+  delegate_to: localhost
+  ansible.builtin.get_url:
+    url: "{{ activemq_url }}"
+    checksum: "{{ activemq_checksum }}"
+    dest: "{{ activemq_download_path.path }}/apache-activemq-{{ activemq_version }}-bin.tar.gz"
+    mode: "0644"
+  ignore_errors: true
+
+- name: Copy archive to target
+  ansible.builtin.copy:
+    src: "{{ activemq_download_path.path }}/apache-activemq-{{ activemq_version }}-bin.tar.gz"
+    dest: "{{ download_location }}/apache-activemq-{{ activemq_version }}-bin.tar.gz"
+    mode: "0644"
+
+- name: Install ActiveMQ
+  become: true
+  block:
+    - name: Extract apache-activemq-{{ activemq_version }}-bin.tar.gz
+      ansible.builtin.unarchive:
+        src: "{{ download_location }}/apache-activemq-{{ activemq_version }}-bin.tar.gz"
+        dest: "{{ activemq_home | dirname }}"
+        remote_src: true
+        owner: "{{ username }}"
+        group: "{{ group_name }}"
+        creates: "{{ activemq_home }}/bin/activemq"
+
+    - name: Install ActiveMQ in Unix Filesystem Hierarchy Standard structure
+      block:
+        - name: Copy data & config files to Unix FHS dirs
+          ansible.builtin.copy:
+            remote_src: true
+            src: "{{ item.src }}"
+            dest: "{{ item.dest }}"
+            owner: "{{ username }}"
+            group: "{{ group_name }}"
+            mode: "0755"
+          loop:
+            - src: "{{ activemq_home }}/conf"
+              dest: "{{ config_folder }}/activemq"
+            - src: "{{ activemq_home }}/data"
+              dest: "{{ data_folder }}/activemq"
+      rescue:
+        - name: Check Unix FHS dirs
+          ansible.builtin.stat:
+            path: "{{ item }}"
+          register: activemq_amq_dest_dirs
+          loop:
+            - "{{ config_folder }}/activemq"
+            - "{{ data_folder }}/activemq"
+        - name: Handle missing sources
+          ansible.builtin.debug:
+            msg: Looks like the FHS directory structure is already in place
+          when: not activemq_amq_dest_dirs.results | map(attribute='stat.exists') | difference([True])
+
+    - name: Remove data & configuration folder from binaries folder
+      ansible.builtin.file:
+        path: "{{ activemq_home }}/{{ item }}"
+        state: absent
+      loop:
+        - conf
+        - data
+
+    - name: Allow external connections to webconsole
+      community.general.xml:
+        xpath: /s:beans/s:bean[@id="jettyPort"]/s:property[@name="host"]
+        attribute: value
+        value: 0.0.0.0
+        namespaces:
+          s: http://www.springframework.org/schema/beans
+        path: "{{ activemq_conf }}/jetty.xml"
+
+    - name: Configure ActiveMQ authentication
+      community.general.xml:
+        pretty_print: true
+        path: "{{ activemq_conf }}/activemq.xml"
+        xpath: /s:beans/a:broker/a:plugins/a:jaasAuthenticationPlugin[@configuration="activemq"]
+        namespaces:
+          s: http://www.springframework.org/schema/beans
+          a: http://activemq.apache.org/schema/core
+
+    - name: Check if jetty-realm.properties exists for 5.x
+      ansible.builtin.stat:
+        path: "{{ activemq_conf }}/jetty-realm.properties"
+      register: activemq_jetty_realm_file
+
+    - name: Configure ActiveMQ users
+      ansible.builtin.lineinfile:
+        path: "{{ activemq_conf }}/{{ item.file }}.properties"
+        line: "{{ item.line }}"
+        owner: "{{ username }}"
+        group: "{{ group_name }}"
+      loop:
+        - file: users
+          line: "{{ activemq_username }}={{ activemq_password }}"
+        - file: groups
+          line: admins={{ activemq_username }}
+        - file: credentials
+          line: "activemq.username={{ activemq_username }}"
+        - file: credentials
+          line: "activemq.password={{ activemq_password }}"
+      no_log: true
+      loop_control:
+        label: "{{ item.file }}"
+
+    - name: Configure ActiveMQ jetty-realm users for 5.x
+      ansible.builtin.lineinfile:
+        path: "{{ activemq_conf }}/jetty-realm.properties"
+        line: "{{ activemq_username }}: MD5:{{ activemq_password | md5 }}, admin"
+        owner: "{{ username }}"
+        group: "{{ group_name }}"
+      no_log: true
+      when: activemq_jetty_realm_file.stat.exists
+
+    - name: Change location of ActiveMQ logs
+      vars:
+        activemq_log_config: "{% if activemq_version is version('5.17.0', '>=') %}log4j2{% else %}log4j{% endif %}"
+      ansible.builtin.replace:
+        path: "{{ activemq_conf }}/{{ activemq_log_config }}.properties"
+        regexp: "activemq.data"
+        replace: "activemq.log"
+        owner: "{{ username }}"
+        group: "{{ group_name }}"
+
+    - name: Add activemq_home and host to setenv script
+      ansible.builtin.blockinfile:
+        path: "{{ config_folder }}/setenv.sh"
+        marker: "# {mark} ACTIVEMQ ENV VARS"
+        owner: "{{ username }}"
+        group: "{{ group_name }}"
+        block: |
+          export ACTIVEMQ_HOME={{ activemq_home }}
+          export ACTIVEMQ_HOST={{ activemq_host }}
+
+    - name: Add activemq wrapper script
+      become: true
+      ansible.builtin.template:
+        src: activemq.sh.j2
+        dest: "{{ binaries_folder }}/activemq.sh"
+        owner: "{{ username }}"
+        group: "{{ group_name }}"
+        mode: 'u=rwx,go=rx'
+      notify:
+        - Restart-activemq
+
+    - name: Add activemq.service
+      ansible.builtin.template:
+        src: activemq.service.j2
+        dest: /etc/systemd/system/activemq.service
+        mode: "0644"
+      notify:
+        - Enable-activemq
+        - Restart-activemq

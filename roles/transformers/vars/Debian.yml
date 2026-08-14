@@ -1,0 +1,15 @@
+---
+transformers_imagemagick_packages:
+  - imagemagick-distribution-linux
+
+transformers_imagemagick_home: "/opt/imagemagick-{{ transformers_imagemagick_version | regex_search('^[0-9]+') }}"
+
+transformers_utils:
+  - libcairo2
+  - libcups2
+  - libsm6
+  - fontconfig
+  - fonts-dejavu
+  - libfreetype6
+  - libx11-xcb1
+  - libimage-exiftool-perl

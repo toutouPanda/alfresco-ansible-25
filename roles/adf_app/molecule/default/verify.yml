@@ -1,0 +1,50 @@
+- name: Verify
+  hosts: all
+  gather_facts: true
+  vars:
+    sites:
+      - url: http://localhost:8881
+        expected_content: Alfresco Digital Workspace
+      - url: http://localhost:8882
+        expected_content: Alfresco Control Center
+  tasks:
+    - name: Populate service facts
+      ansible.builtin.service_facts:
+
+    - name: Check that Nginx service is up and running
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.services['nginx.service'] is defined
+          - ansible_facts.services['nginx.service'].state == 'running'
+        quiet: true
+
+    - name: Check that the homepage contains the expected contents
+      ansible.builtin.uri:
+        url: "{{ item.url }}/"
+        return_content: true
+      register: this
+      failed_when: "item.expected_content not in this.content"
+      loop: "{{ sites }}"
+
+    - name: Retrieve app config
+      ansible.builtin.uri:
+        url: "{{ item.url }}/app.config.json"
+      register: this
+      loop: "{{ sites }}"
+      loop_control:
+        label: "{{ item.url }}/app.config.json"
+
+    - name: Assert that config contains expected contents
+      ansible.builtin.assert:
+        that:
+          - this.results[idx].json.authType == 'OAUTH'
+          - this.results[idx].json.oauth2.clientId == 'alfresco'
+          - this.results[idx].json.oauth2.scope == 'openid profile email'
+          - this.results[idx].json.oauth2.redirectUri == '/'
+          - this.results[idx].json.oauth2.redirectUriLogout == '/'
+          - this.results[idx].json.oauth2.redirectSilentIframeUri == '{protocol}//{hostname}{:port}/assets/silent-refresh.html'
+        quiet: true
+      loop: "{{ sites }}"
+      loop_control:
+        index_var: idx
+        label: "{{ item.url }}/app.config.json"

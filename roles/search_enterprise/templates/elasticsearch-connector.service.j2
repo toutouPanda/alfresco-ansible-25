@@ -1,0 +1,24 @@
+[Unit]
+Description=Alfresco Enterprise Search - All in one Service
+After=syslog.target network.target local-fs.target remote-fs.target nss-lookup.target
+
+[Service]
+Type=simple
+
+User={{ username }}
+
+Environment=SERVER_PORT={{ search_enterprise_port }}
+
+{% include "elasticsearch-cfg.j2" %}
+
+ExecStart={{ java_home }}/bin/java -jar {{ search_enterprise_binaries_dir }}/alfresco-elasticsearch-live-indexing-{{ search_enterprise_version }}-app.jar
+ExecStop=/bin/kill -15 $MAINPID
+
+Restart=on-failure
+RestartSec=60
+SuccessExitStatus=143
+
+WorkingDirectory={{ search_enterprise_binaries_dir }}
+
+[Install]
+WantedBy=multi-user.target

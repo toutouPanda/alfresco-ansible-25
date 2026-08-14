@@ -1,0 +1,35 @@
+ansible_user: ansible
+
+repository_db_name: "alfresco"
+repository_db_username: "alfresco"
+sync_db_name: "alfresco-sync"
+sync_db_username: "alfresco-sync"
+sync_db_url: jdbc:postgresql://localhost/{{ sync_db_name }}
+
+global_properties:
+  authentication:
+    protection:
+      limit: 3
+      periodSeconds: 20
+  db:
+    url: jdbc:postgresql://localhost/{{ repository_db_name }}
+    driver: org.postgresql.Driver
+    username: "{{ repository_db_username }}"
+    password: alfresco
+  alfresco:
+    host: localhost
+    port: 8080
+    protocol: http
+    cluster:
+      enabled: false
+  share:
+    host: localhost
+    port: 8080
+    protocol: http
+  messaging:
+    broker:
+      url: failover:(tcp://localhost:61616)?timeout=3000
+      username: "{{ activemq_username }}"
+      password: "{{ activemq_password }}"
+  aos:
+    baseUrlOverwrite: http://localhost/alfresco/aos

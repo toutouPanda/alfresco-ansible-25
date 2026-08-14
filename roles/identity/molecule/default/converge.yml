@@ -1,0 +1,16 @@
+---
+- name: Converge
+  hosts: all
+  vars:
+    identity_admin_password: keycloak12345
+    identity_keycloak_additional_env_vars:
+      - key: KC_FEATURES
+        value: token-exchange
+  tasks:
+    - name: "Include identity"
+      ansible.builtin.include_role:
+        name: "identity"
+    - name: "Include identity realm"
+      ansible.builtin.include_role:
+        name: "identity"
+        tasks_from: realm

@@ -1,0 +1,31 @@
+---
+- name: Configure identity service properties when available
+  when: repository_identity_url
+  ansible.builtin.set_fact:
+    repository_share_aims_properties:
+      enabled: "true"
+      realm: "{{ repository_identity_realm }}"
+      resource: "{{ repository_identity_client_id }}"
+      secret: "{{ repository_identity_client_secret }}"
+      authServerUrl: "{{ repository_identity_url }}"
+      publicClient: "{% if repository_identity_client_secret %}false{% else %}true{% endif %}"
+
+- name: Add the configuration templates
+  ansible.builtin.template:
+    owner: "{{ username }}"
+    group: "{{ group_name }}"
+    src: "{{ item }}.j2"
+    dest: >-
+      {{ repository_settings_folder }}/classpath/alfresco/web-extension/{{ item }}
+    mode: "0644"
+  loop: "{{ repository_share_templates }}"
+
+- name: Add Hazelcast cluster config for Share
+  become: true
+  ansible.builtin.template:
+    owner: "{{ username }}"
+    group: "{{ group_name }}"
+    src: custom-slingshot-application-context.xml
+    dest: "{{ repository_settings_folder }}/classpath/alfresco/web-extension/custom-slingshot-application-context.xml"
+    mode: 'u=rw,g=,o='
+  when: groups['repository'] | length > 1 and not repository_cluster_keepoff

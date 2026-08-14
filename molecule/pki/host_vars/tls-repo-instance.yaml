@@ -1,0 +1,6 @@
+# placeholder
+ansible_user: ansible
+acs_play_known_urls:
+  - http://localhost:8080/share
+amps: {}
+amp_downloads: []

@@ -1,0 +1,106 @@
+---
+# tasks file for sync
+- name: Include OS specific variables
+  ansible.builtin.include_vars: "{{ item }}"
+  loop: >-
+    {{ lookup('first_found', os_fallback, errors='ignore', wantlist=True) }}
+
+- name: Download Sync service artefact
+  ansible.builtin.get_url:
+    url: "{{ sync_zip_url }}"
+    dest: "{{ download_location }}/sync-dist-6.x-{{ sync_version }}.zip"
+    checksum: "{{ sync_zip_checksum }}"
+    url_username: "{{ sync_zip_username | default(omit) }}"
+    url_password: "{{ sync_zip_password | default(omit) }}"
+    mode: "0644"
+
+- name: Extract Sync service to {{ sync_home }}
+  ansible.builtin.unarchive:
+    src: "{{ download_location }}/sync-dist-6.x-{{ sync_version }}.zip"
+    dest: "{{ download_location }}"
+    remote_src: true
+    creates: "{{ download_location }}/sync/service-sync/service-sync-{{ sync_version }}.jar"
+
+- name: Install Sync service
+  become: true
+  block:
+    - name: Ensure a list of packages installed
+      ansible.builtin.package:
+        name: "{{ sync_utils }}"
+        state: present
+
+    - name: Copy files to {{ sync_home }}
+      ansible.builtin.copy:
+        remote_src: true
+        src: "{{ download_location }}/sync/"
+        dest: "{{ sync_home }}/"
+        owner: "{{ username }}"
+        group: "{{ group_name }}"
+        mode: preserve
+
+    - name: Create Sync service configuration folder
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: directory
+        owner: "{{ username }}"
+        group: "{{ group_name }}"
+        mode: "{{ item.mode }}"
+      loop:
+        - path: "{{ sync_home }}/service-sync/connectors"
+          mode: "0755"
+        - path: "{{ config_folder }}/sync-service"
+          mode: "0750"
+
+    - name: Download postgresql JDBC driver
+      ansible.builtin.get_url:
+        url: "{{ sync_jdbc_driver_url }}"
+        checksum: "{{ sync_jdbc_driver_checksum }}"
+        dest: "{{ sync_home }}/service-sync/connectors/postgresql.jar"
+        mode: "0644"
+        owner: "{{ username }}"
+        group: "{{ group_name }}"
+      when: sync_jdbc_driver_class == 'org.postgresql.Driver'
+
+    - name: Copy db_connector to {{ sync_home }}/service-sync/connectors folder
+      ansible.builtin.copy:
+        src: "{{ role_path }}/../../configuration_files/db_connector_sync/"
+        dest: "{{ sync_home }}/service-sync/connectors/"
+        owner: "{{ username }}"
+        group: "{{ group_name }}"
+        mode: "0644"
+      when: sync_jdbc_driver_class != 'org.postgresql.Driver'
+
+    - name: Add paths to setenv file
+      ansible.builtin.blockinfile:
+        path: "{{ config_folder }}/setenv.sh"
+        marker: "# {mark} SYNC ENV VARS"
+        owner: "{{ username }}"
+        group: "{{ group_name }}"
+        block: |
+          export SYNC_VERSION={{ sync_version }}
+          export SYNC_HOME={{ sync_home }}
+        insertafter: EOF
+
+    - name: Add sync service startup script
+      ansible.builtin.template:
+        src: syncservice.sh.j2
+        dest: "{{ binaries_folder }}/syncservice.sh"
+        owner: "{{ username }}"
+        group: "{{ group_name }}"
+        mode: 'u=rwx,g=rwx'
+      notify:
+        - Restart-sync
+
+    - name: Add alfresco-sync.service service
+      ansible.builtin.template:
+        src: alfresco-sync.service
+        dest: "/etc/systemd/system/alfresco-sync.service"
+        owner: "{{ username }}"
+        group: "{{ group_name }}"
+        mode: 'u=rwx,g=rwx'
+      notify:
+        - Enable-sync
+        - Restart-sync
+
+    - name: Import Alfresco Sync service configurations tasks
+      ansible.builtin.import_tasks: configure.yml

@@ -1,0 +1,133 @@
+name: "community"
+
+on:
+  pull_request:
+    branches:
+      - master
+      - 'next/**'
+    paths-ignore:
+      - "docs/**"
+      - "*.md"
+      - .github/workflows/docs.yml
+      - .pre-commit-config.yaml
+  push:
+    branches: [master]
+    paths-ignore:
+      - "docs/**"
+      - "*.md"
+      - .github/workflows/docs.yml
+      - .pre-commit-config.yaml
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  requirements:
+    name: Ensure requirements are met
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup Python
+        uses: ./.github/actions/setup-python
+        id: setup-python
+
+      - name: Install python packages
+        uses: Alfresco/alfresco-build-tools/.github/actions/pipenv@v17.6.0
+        with:
+          python-version: ${{ steps.setup-python.outputs.python-version }}
+
+      - name: Ensure required artifacts have been cached
+        uses: ./.github/actions/cache-downloads
+        with:
+          cache-name: community
+  docker:
+    name: Test ${{ matrix.role.name }} role on ${{ matrix.molecule_distro.image }}
+    # -A* and -M* are not available without nexus credentials
+    if: |
+      ! startsWith(github.head_ref, 'next/') && ! contains(github.event.pull_request.labels.*.name, 'ci-prerelease')
+    runs-on: ubuntu-latest
+    needs: requirements
+    strategy:
+      fail-fast: false
+      matrix:
+        molecule_distro:
+          - image: ubuntu:24.04
+          - image: ubuntu:22.04
+          - image: rockylinux/rockylinux:9.7
+        role:
+          - name: activemq
+          - name: common
+          - name: elasticsearch
+          - name: identity
+          - name: java
+          - name: nginx
+          - name: postgres
+          - name: search
+          - name: tomcat
+          - name: transformers
+    env:
+      PY_COLORS: 1
+      PYTHONUNBUFFERED: 1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up Python
+        uses: ./.github/actions/setup-python
+        id: setup-python
+
+      - name: Install python packages
+        uses: Alfresco/alfresco-build-tools/.github/actions/pipenv@v17.6.0
+        with:
+          python-version: ${{ steps.setup-python.outputs.python-version }}
+
+      - name: Install and cache ansible galaxy dependencies
+        uses: ./.github/actions/galaxy
+        with:
+          cache-name: community
+
+      - name: Setup workspace
+        uses: ./.github/actions/setup-workspace
+
+      - name: Cache downloads
+        uses: ./.github/actions/cache-downloads
+        with:
+          cache-name: community
+
+      - name: Disable unix-chkpwd AppArmor profile
+        run: |
+          if sudo aa-status --enabled 2>/dev/null; then
+            sudo ln -sf /etc/apparmor.d/unix-chkpwd /etc/apparmor.d/disable/
+            sudo apparmor_parser -R /etc/apparmor.d/unix-chkpwd 2>/dev/null || true
+          fi
+
+      - name: Run tests
+        env:
+          MOLECULE_ROLE_IMAGE: ${{ matrix.molecule_distro.image }}
+        uses: nick-fields/retry@ad984534de44a9489a53aefd81eb77f87c70dc60 # v4.0.0
+        with:
+          timeout_minutes: 60
+          max_attempts: 3
+          retry_wait_seconds: 10
+          command: cd roles/${{ matrix.role.name }} && pipenv run molecule test
+
+  docker_integration:
+    name: Test ${{ matrix.scenario.name }} scenario on ${{ matrix.molecule_distro.image }}
+    if: github.actor != 'dependabot[bot]'
+    needs: requirements
+    strategy:
+      fail-fast: false
+      matrix:
+        molecule_distro:
+          - image: ubuntu:22.04
+          - image: rockylinux/rockylinux:9.7
+        scenario:
+          - name: docker_community
+    uses: ./.github/workflows/docker.yml
+    with:
+      scenario: ${{ matrix.scenario.name }}
+      os_distribution: ${{ matrix.molecule_distro.image }}
+      galaxy_cache: community

@@ -1,0 +1,36 @@
+name: pre-commit
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 2
+
+      - name: Set up Python
+        uses: ./.github/actions/setup-python
+        id: setup-python
+
+      - name: Install python packages
+        uses: Alfresco/alfresco-build-tools/.github/actions/pipenv@v17.6.0
+        with:
+          python-version: ${{ steps.setup-python.outputs.python-version }}
+
+      - name: Install and cache ansible galaxy dependencies
+        uses: ./.github/actions/galaxy
+
+      - name: Cache pre-commit
+        uses: actions/cache@b7e8d49f17405cc70c1c120101943203c98d3a4b # v4.2.2
+        with:
+          path: ~/.cache/pre-commit
+          key: ${{ runner.os }}-precommit-${{ hashFiles('.pre-commit-config.yaml') }}
+
+      - uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1

@@ -1,0 +1,7 @@
+---
+# vars file for tomcat
+
+tomcat_working: "{{ data_folder }}/tomcat"
+tomcat_config_dir: "{{ config_folder }}/tomcat"
+
+tomcat_home: "{{ tomcat_home_prefix }}-{{ tomcat_version }}"

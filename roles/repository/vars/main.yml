@@ -1,0 +1,12 @@
+---
+repository_content_folder: "{{ binaries_folder }}/content-services-{{ repository_acs_version }}"
+repository_settings_folder: "{{ config_folder }}/content-services"
+repository_content_data_folder: "{{ data_folder }}/content-services"
+
+repository_share_templates:
+  - share-config-custom.xml
+  - smartfolders-amp-actions-config.xml
+
+repository_protocol: "{{ 'https' if repository_use_ssl | bool else 'http' }}"
+repository_host: "{{ nginx_host }}"
+repository_port: "{{ ports_cfg.nginx.https if repository_use_ssl | bool else ports_cfg.nginx.http }}"

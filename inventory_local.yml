@@ -1,0 +1,84 @@
+---
+all:
+  vars:
+    ansible_connection: local
+
+  children:
+    repository:
+      hosts:
+        localhost:
+
+    database:
+      children:
+        repository:
+
+    activemq:
+      children:
+        repository:
+
+    # Solr search engine (an alternative to Enterprise Search, and the only available option for the Community edition)
+    search:
+      children:
+        # repository:
+
+    # Enterprise Search (default search engine - not available in Community edition)
+    search_enterprise:
+      children:
+        repository:
+    elasticsearch:
+      children:
+        repository:
+
+    # Keycloak SSO support (optional)
+    identity:
+      children:
+
+    nginx:
+      children:
+        repository:
+
+    acc:
+      children:
+        repository:
+
+    adw:
+      children:
+        repository:
+
+    transformers:
+      children:
+        repository:
+
+    syncservice:
+      children:
+        repository:
+
+    audit_storage:
+      children:
+        repository:
+
+    other_repo_clients:
+      hosts:
+
+    trusted_resource_consumers:
+      children:
+        repository:
+        nginx:
+        adw:
+        other_repo_clients:
+
+    external_activemq:
+      hosts:
+
+    external_elasticsearch:
+      hosts:
+
+    external_identity:
+      hosts:
+
+    external:
+      children:
+        external_activemq:
+        external_elasticsearch:
+        external_identity:
+        other_repo_clients:

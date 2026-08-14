@@ -1,0 +1,17 @@
+---
+# handlers file for trouter
+- name: Wait-for-aio
+  ansible.builtin.wait_for:
+    host: "{{ ats_tengine_aio_host }}"
+    port: "{{ ports_cfg.transformers.tengine }}"
+
+- name: Enable-trouter
+  become: true
+  ansible.builtin.service:
+    name: alfresco-transform-router
+    enabled: true
+    daemon_reload: true
+
+- name: Restart-trouter
+  ansible.builtin.include_tasks:
+    file: restart.yml

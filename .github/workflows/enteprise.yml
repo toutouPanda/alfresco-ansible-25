@@ -1,0 +1,235 @@
+name: "enterprise"
+
+on:
+  pull_request:
+    branches:
+      - master
+      - 'next/**'
+    types: [labeled, opened, synchronize, reopened]
+    paths-ignore:
+      - "docs/**"
+      - "*.md"
+      - .github/workflows/docs.yml
+      - .pre-commit-config.yaml
+  push:
+    branches: [master]
+    paths-ignore:
+      - "docs/**"
+      - "*.md"
+      - .github/workflows/docs.yml
+      - .pre-commit-config.yaml
+  workflow_dispatch:
+
+env:
+  DTAS_VERSION: v1.7.3
+  BUILD_NUMBER: ${{ github.run_id }}
+  PY_COLORS: 1
+  PYTHONUNBUFFERED: 1
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  requirements:
+    name: Ensure requirements are met
+    runs-on: ubuntu-latest
+    outputs:
+      secrets-available: ${{ steps.check-secrets.outputs.secrets-available }}
+    steps:
+      - name: Check if nexus secrets are available
+        id: check-secrets
+        run: | # pragma: allowlist secret
+          if [ -z "${{ secrets.nexus_username }}" ] || [-z "${{ secrets.nexus_password }}"]; then
+            echo "nexus_username or nexus_password is missing"
+            echo "secrets-available=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          echo "secrets-available=true" >> $GITHUB_OUTPUT
+
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup Python
+        uses: ./.github/actions/setup-python
+        id: setup-python
+
+      - name: Install python packages
+        uses: Alfresco/alfresco-build-tools/.github/actions/pipenv@v17.6.0
+        with:
+          python-version: ${{ steps.setup-python.outputs.python-version }}
+
+      - name: Ensure required artifacts have been cached
+        uses: ./.github/actions/cache-downloads
+        with:
+          cache-name: enterprise
+  docker:
+    name: Test ${{ matrix.role.name }} role on ${{ matrix.molecule_distro.image }}
+    runs-on: ubuntu-latest
+    needs: requirements
+    if: needs.requirements.outputs.secrets-available == 'true'
+    outputs:
+      dtas_version: ${{ steps.jobvars.outputs.dtas_version }}
+    strategy:
+      fail-fast: false
+      matrix:
+        molecule_distro:
+          - image: ubuntu:24.04
+          - image: rockylinux/rockylinux:9.7
+        role:
+          - name: adf_app
+          - name: search_enterprise
+          - name: repository
+          - name: sfs
+          - name: sync
+          - name: trouter
+          - name: audit_storage
+    steps:
+      - name: Share var with further reusable workflows
+        id: jobvars
+        run: echo "dtas_version=$DTAS_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup Python
+        uses: ./.github/actions/setup-python
+        id: setup-python
+
+      - name: Install python packages
+        uses: Alfresco/alfresco-build-tools/.github/actions/pipenv@v17.6.0
+        with:
+          python-version: ${{ steps.setup-python.outputs.python-version }}
+
+      - name: Install and cache ansible galaxy dependencies
+        uses: ./.github/actions/galaxy
+        with:
+          cache-name: enterprise
+
+      - name: Setup workspace
+        uses: ./.github/actions/setup-workspace
+
+      - name: Cache downloads
+        uses: ./.github/actions/cache-downloads
+        with:
+          cache-name: enterprise
+
+      - name: Disable unix-chkpwd AppArmor profile
+        run: |
+          if sudo aa-status --enabled 2>/dev/null; then
+            sudo ln -sf /etc/apparmor.d/unix-chkpwd /etc/apparmor.d/disable/
+            sudo apparmor_parser -R /etc/apparmor.d/unix-chkpwd 2>/dev/null || true
+          fi
+
+      - name: Run tests
+        env:
+          MOLECULE_ROLE_IMAGE: ${{ matrix.molecule_distro.image }}
+          NEXUS_USERNAME: ${{ secrets.nexus_username }}
+          NEXUS_PASSWORD: ${{ secrets.nexus_password }}
+        uses: nick-fields/retry@ad984534de44a9489a53aefd81eb77f87c70dc60 # v4.0.0
+        with:
+          timeout_minutes: 60
+          max_attempts: 3
+          retry_wait_seconds: 10
+          command: cd roles/${{ matrix.role.name }} && pipenv run molecule test
+
+  docker_integration:
+    name: Test ${{ matrix.scenario.name }} scenario on ${{ matrix.molecule_distro.image }}
+    needs:
+      - docker
+    strategy:
+      fail-fast: false
+      matrix:
+        molecule_distro:
+          - image: ubuntu:24.04
+          - image: rockylinux/rockylinux:9.7
+        scenario:
+          - name: pki
+          - name: elasticsearch
+          - name: identity
+          - name: prerun_network_checks
+        runner:
+          - ubuntu-latest
+        include:
+          - scenario:
+              name: docker_enterprise
+            molecule_distro:
+              image: rockylinux/rockylinux:9.7
+            runner: ubuntu-24.04-arm
+          - scenario:
+              name: docker_enterprise
+            molecule_distro:
+              image: ubuntu:24.04
+            runner: ubuntu-24.04-arm
+
+    uses: ./.github/workflows/docker.yml
+    with:
+      scenario: ${{ matrix.scenario.name }}
+      os_distribution: ${{ matrix.molecule_distro.image }}
+      galaxy_cache: enterprise
+      dtas_version: ${{ needs.docker.outputs.dtas_version }}
+      dtas_additional_params: ${{ matrix.runner == 'ubuntu-24.04-arm' && '-k "not test_transformation and not test_get_sync and not test_get_ended_sync"' || '' }}
+      runner: ${{ matrix.runner }}
+    secrets:
+      nexus_username: ${{ secrets.NEXUS_USERNAME_READ_ONLY }}
+      nexus_password: ${{ secrets.NEXUS_PASSWORD_READ_ONLY }}
+      dtas_token: ${{ secrets.BOT_GITHUB_TOKEN || secrets.DEPENDABOT_GITHUB_TOKEN }}
+
+  ec2:
+    name: ${{ matrix.molecule_scenario.desc }}
+    if: >-
+      github.actor != 'dependabot[bot]' &&
+      (contains(github.event.pull_request.labels.*.name, 'ec2-test') || github.ref_name == 'master') &&
+      needs.requirements.outputs.secrets-available == 'true'
+    runs-on: ubuntu-latest
+    needs: requirements
+    strategy:
+      fail-fast: false
+      matrix:
+        molecule_scenario:
+          - name: default
+            vars: vars-ubuntu22-74.yml
+            desc: EC2 ACS 7.4 (Ubuntu 22.04)
+          - name: default
+            vars: vars-rocky8.yml
+            desc: EC2 ACS 7.4 (Rocky Linux 8.10)
+          - name: default
+            vars: vars-rhel8.yml
+            desc: EC2 ACS 25 (RHEL 8.10)
+          - name: default
+            vars: vars-ubuntu-community.yml
+            desc: EC2 ACS 26.x Community (Ubuntu 24.04)
+          - name: default
+            vars: vars-rocky9.yml
+            desc: EC2 ACS 23.x (Rocky Linux 9.7)
+          - name: multimachine
+            vars: vars.yml
+            desc: EC2 ACS 26.x clustered (RHEL 9.7)
+          - name: opensearch
+            vars: vars.yml
+            desc: EC2 ACS 26.x opensearch (RHEL 9.7)
+    env:
+      AWS_REGION: eu-west-1
+      MOLECULE_IT_AWS_VPC_SUBNET_ID: subnet-6bdd4223
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          # avoid auth conflict when cloning DTAS during verify step
+          persist-credentials: false
+
+      - name: Run tests on push
+        timeout-minutes: 185
+        uses: ./.github/actions/molecule_integration_ec2
+        with:
+          matrix_name: ${{ matrix.molecule_scenario.name }}
+          matrix_vars: ${{ matrix.molecule_scenario.vars }}
+          matrix_desc: ${{ matrix.molecule_scenario.desc }}
+          nexus_username: ${{ secrets.NEXUS_USERNAME_READ_ONLY }}
+          nexus_password: ${{ secrets.NEXUS_PASSWORD_READ_ONLY }}
+          aws_region: ${{ env.AWS_REGION }}
+          pat: ${{ secrets.BOT_GITHUB_TOKEN }}

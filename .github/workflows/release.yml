@@ -1,0 +1,52 @@
+name: "release"
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - v[0-9]+\.[0-9]+\.[0-9]+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Get tag name
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+            VERSION="${GITHUB_REF##*/v}"
+          else
+            VERSION="0.0.0"
+          fi
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
+      - name: Generate Ansible playbook v${{ env.VERSION }}
+        run: |
+          ./scripts/generate-zip.sh
+
+      - name: Configure AWS credentials
+        if: github.event_name != 'workflow_dispatch'
+        uses: aws-actions/configure-aws-credentials@ec61189d14ec14c8efccab744f656cffd0e33f37 # v6.1.0
+        with:
+          aws-access-key-id: ${{ secrets.S3_STAGING_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.S3_STAGING_AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-1
+
+      - name: Publish to S3 staging bucket
+        if: github.event_name != 'workflow_dispatch'
+        run: |
+          aws s3 cp alfresco-ansible-deployment-${VERSION}.zip s3://alfresco-artefacts-staging/enterprise/alfresco-ansible-deployment/
+
+      - name: Publish on Nexus
+        uses: Alfresco/alfresco-build-tools/.github/actions/maven-deploy-file@v17.6.0
+        if: github.event_name != 'workflow_dispatch'
+        with:
+          group-id: org.alfresco
+          artifact-id: alfresco-ansible-deployment
+          repository-url: https://nexus.alfresco.com/nexus/content/repositories/releases/
+          version: ${{ env.VERSION }}
+          file: alfresco-ansible-deployment-${{ env.VERSION }}.zip
+          classifier: zip
+          maven-username: ${{ secrets.nexus_username }}
+          maven-password: ${{ secrets.nexus_password }}

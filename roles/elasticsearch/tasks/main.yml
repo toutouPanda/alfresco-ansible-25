@@ -1,0 +1,39 @@
+---
+# tasks file for elasticsearch
+- name: Install elasticsearch
+  become: true
+  block:
+    # https://github.com/elastic/elasticsearch/issues/57018
+    - name: Create alternative tmp directory for elasticsearch
+      ansible.builtin.file:
+        path: "{{ elasticsearch_tmp_path }}"
+        state: directory
+        mode: "0777"
+
+    - name: Create override directory for elasticsearch.service
+      ansible.builtin.file:
+        path: "{{ elasticsearch_systemd_service_path }}"
+        state: directory
+        mode: "0755"
+
+    - name: Set tmpdir override for elasticsearch.service
+      ansible.builtin.copy:
+        content: |
+          [Service]
+          Environment="ES_TMPDIR={{ elasticsearch_tmp_path }}"
+        dest: "{{ elasticsearch_systemd_service_path }}/tmpdir.conf"
+        mode: "0644"
+
+    - name: Install elasticsearch
+      ansible.builtin.include_role:
+        name: geerlingguy.elasticsearch
+      vars:
+        elasticsearch_version: "{{ elasticsearch_major_version }}"
+        elasticsearch_network_host: "{{ elasticsearch_listen_address }}"
+        elasticsearch_heap_size_min: 1g
+        elasticsearch_heap_size_max: 1g
+        elasticsearch_extra_options: |
+          xpack.security.enabled: false
+          discovery.type: single-node
+          xpack.security.transport.ssl.enabled: false
+          xpack.security.http.ssl.enabled: false

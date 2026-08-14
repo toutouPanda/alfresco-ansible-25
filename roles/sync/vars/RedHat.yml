@@ -1,0 +1,4 @@
+---
+sync_utils:
+  - unzip
+  - which

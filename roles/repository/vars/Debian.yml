@@ -1,0 +1,20 @@
+---
+repository_utils_repo:
+  - libcairo2
+  - libcups2
+  - libsm6
+  - fontconfig
+  - fonts-dejavu
+  - libfreetype6
+  - curl
+
+repository_utils_storage:
+  nfs:
+    - nfs-common
+  cifs:
+    - cifs-utils
+  glusterfs:
+    - glusterfs-client
+  gfs2:
+    - gfs2-utils
+  tmpfs: []

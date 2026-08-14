@@ -1,0 +1,34 @@
+---
+dependency:
+  name: galaxy
+driver:
+  name: docker
+platforms:
+  - name: search-ent-instance
+    image: $MOLECULE_ROLE_IMAGE
+    dockerfile: ../../../../tests/molecule/Dockerfile-noprivs.j2
+    command: "/lib/systemd/systemd"
+    privileged: true
+    tmpfs:
+      - /run
+      - /run/lock
+      - /tmp
+    volume_mounts:
+      - "/sys/fs/cgroup:/sys/fs/cgroup:ro"
+    groups:
+      - activemq
+      - sfs
+      - transformers
+      - search_enterprise
+provisioner:
+  name: ansible
+  env:
+    ANSIBLE_ROLES_PATH: "../../../../roles:~/.ansible/roles"
+  ansible_args:
+    - -e
+    - "@../../../../tests/molecule/secrets.yml"
+  inventory:
+    links:
+      host_vars: host_vars
+verifier:
+  name: ansible

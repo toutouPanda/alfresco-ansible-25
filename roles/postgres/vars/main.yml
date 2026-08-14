@@ -1,0 +1,6 @@
+---
+postgres_rpm_repo: http://download.postgresql.org/pub/repos/yum/reporpms/EL-{{ ansible_distribution_major_version }}-{{ ansible_architecture }}/pgdg-redhat-repo-latest.noarch.rpm
+postgres_service: postgresql-{{ postgres_major_version }}
+postgres_setup_path: /usr/pgsql-{{ postgres_major_version }}/bin/postgresql-{{ postgres_major_version }}-setup
+postgres_data_path: /var/lib/pgsql/{{ postgres_major_version }}/data
+postgres_conf_path: /var/lib/pgsql/{{ postgres_major_version }}/data

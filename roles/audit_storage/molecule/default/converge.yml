@@ -1,0 +1,9 @@
+---
+- name: Converge
+  hosts: all
+  roles:
+    - role: activemq
+    - role: elasticsearch
+      vars:
+        elasticsearch_major_version: '7.x'
+    - role: audit_storage

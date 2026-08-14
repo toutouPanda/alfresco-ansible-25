@@ -1,0 +1,102 @@
+---
+argument_specs:
+  main:
+    short_description: deploys Alfresco Search Service
+    description: |
+      This role deploys Alfresco Search Service, or Search & Insight Engine,
+      The Solr based component which provides Full Text Search capabilities
+      to Alfresco repository.
+    author: Alfresco
+    options:
+      search_shared_secret:
+        description: |
+          The shared secret Alfresco repository and Solr
+          use to authenticate to each other.
+        required: true
+        type: str
+      search_cores:
+        description: |
+          List of Solr cores to create
+        required: false
+        type: list
+        elements: str
+        default:
+          - alfresco
+          - archive
+      search_repository:
+        description: |
+          A dictionnary to define Alfresco repository configuration.
+        required: false
+        type: dict
+        options:
+          host:
+            description: |
+              This property specifies the host name for the instance that Solr
+              should track and index.
+            required: false
+            type: str
+            default: localhost
+          port:
+            description: |
+              This property specifies the HTTP port for the instance that Solr
+              should track and index.
+            required: false
+            type: int
+            default: 80
+          port_ssl:
+            description: |
+              This property specifies the HTTPS port for the instance that Solr
+              should track and index.
+            required: false
+            type: int
+            default: 443
+      search_topology:
+        description: |
+          The setup type for multiple Solr hosts.
+        required: false
+        type: str
+        default: standalone
+        choices:
+          - standalone
+          - replication
+      search_master_host:
+        description: |
+          The hostname of the Solr master node (when replication is enabled).
+          Defaults to the first host of the play hosts.
+        required: false
+        type: str
+        default: "{{ ansible_play_hosts_all[0] }}"
+      search_master_port:
+        description: |
+          The port used by slaves to communicate to the Solr master node (when
+          replication is enabled).
+        required: false
+        type: int
+        default: 8983
+      search_master_scheme:
+        description: |
+          The protocol used by slaves to communicate with the Solr master node
+          (when replication is enabled).
+        required: false
+        type: str
+        default: http
+      search_version:
+        description: Alfresco Search Service version to use for deployment.
+        required: false
+        default: 2.0.14
+      search_flavor:
+        description: |
+          Choose between alfresco-search-services and alfresco-insight-engine.
+          Insight Engine requires a specific entitlement.
+        required: false
+        default: alfresco-search-services
+      search_zip_url:
+        description: |
+          The URL of the Search Service zip file to download.
+        required: false
+        type: str
+      search_zip_checksum:
+        description: |
+          The URL of the Search Service zip file checksum to download.
+        required: false
+        type: str

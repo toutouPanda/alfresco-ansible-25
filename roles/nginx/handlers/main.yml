@@ -1,0 +1,19 @@
+---
+# handlers file for nginx
+- name: Enable-nginx
+  become: true
+  ansible.builtin.service:
+    name: nginx
+    enabled: true
+
+- name: Restart-nginx
+  become: true
+  ansible.builtin.service:
+    name: nginx
+    state: restarted
+
+- name: Reload-nginx
+  become: true
+  ansible.builtin.service:
+    name: nginx
+    state: reloaded

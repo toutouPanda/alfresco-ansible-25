@@ -1,0 +1,7 @@
+postgres_package_repo: https://apt-archive.postgresql.org
+postgres_packages:
+  - postgresql-{{ postgres_major_version }}
+  - python{{ '3' if ansible_python_version.split('.')[0] == '3' else '' }}-psycopg2
+
+postgres_service: postgresql
+postgres_conf_path: /etc/postgresql/{{ postgres_major_version }}/main

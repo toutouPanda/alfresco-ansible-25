@@ -1,0 +1,68 @@
+---
+# tasks file for common
+- name: Include OS specific variables
+  ansible.builtin.include_vars: "{{ item }}"
+  loop: >-
+    {{ lookup('first_found', os_fallback, errors='ignore', wantlist=True) }}
+
+- name: Ensure apt indices are up-to-date
+  become: true
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600  # 1 hour
+  when: ansible_pkg_mgr == 'apt'
+
+- name: Ensure a list of packages installed
+  become: true
+  ansible.builtin.package:
+    name: "{{ utils }}"
+    state: present
+
+- name: Ensure a SELinux related packages are installed
+  become: true
+  ansible.builtin.package:
+    name: "{{ utils_selinux }}"
+    state: present
+  when: ansible_selinux.status == 'enabled'
+
+- name: Prepare Alfresco platform installation
+  become: true
+  block:
+    - name: Create {{ group_name }} group
+      ansible.builtin.group:
+        name: "{{ group_name }}"
+        system: true
+
+    - name: Create {{ username }} user
+      ansible.builtin.user:
+        name: "{{ username }}"
+        comment: "{{ username }} user"
+        system: true
+        group: "{{ group_name }}"
+
+    - name: Create folder hierarchy
+      ansible.builtin.file:
+        path: "{{ item.folder }}"
+        state: directory
+        owner: "{{ username }}"
+        group: "{{ group_name }}"
+        mode: "{{ item.mode }}"
+      loop:
+        - folder: "{{ binaries_folder }}"
+          mode: "0755"
+        - folder: "{{ data_folder }}"
+          mode: "0750"
+        - folder: "{{ config_folder }}"
+          mode: "0750"
+        - folder: "{{ logs_folder }}"
+          mode: "0750"
+        - folder: "{{ download_location }}"
+          mode: "0777"
+
+    - name: Allow systemd services to write logs under {{ logs_folder }}
+      community.general.sefcontext:
+        target: "{{ logs_folder }}(/.*)?"
+        setype: var_log_t
+        state: present
+      when: ansible_selinux.status == "enabled"
+      notify: apply-selinux-logs-context

@@ -1,0 +1,39 @@
+---
+dependency:
+  name: galaxy
+driver:
+  name: docker
+platforms:
+  - name: identity-instance
+    image: $MOLECULE_ROLE_IMAGE
+    dockerfile: ../../tests/molecule/Dockerfile-noprivs.j2
+    command: "/lib/systemd/systemd"
+    privileged: true
+    tmpfs:
+      - /run
+      - /run/lock
+      - /tmp
+    volume_mounts:
+      - "/sys/fs/cgroup:/sys/fs/cgroup:ro"
+    groups:
+      - database
+      - activemq
+      - repository
+      - trusted_resource_consumers
+      - adw
+      - acc
+      - identity
+      - nginx
+    published_ports:
+      - 0.0.0.0:80:80/tcp
+
+provisioner:
+  name: ansible
+  config_options:
+    defaults:
+      pipelining: True
+  inventory:
+    links:
+      host_vars: host_vars
+verifier:
+  name: ansible

@@ -1,0 +1,11 @@
+---
+utils:
+  - sudo
+  - unzip
+  - tar
+  - python3-lxml
+  - gpg
+utils_selinux:
+  - python3-libselinux
+  - python3-libsemanage
+  - python3-policycoreutils

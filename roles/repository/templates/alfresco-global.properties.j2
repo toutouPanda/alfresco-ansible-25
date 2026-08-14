@@ -1,0 +1,88 @@
+{% for prop in lookup('ansible.utils.to_paths', merged_repository_properties) | dict2items %}
+{{ prop.key }}={{ prop.value }}
+{% endfor %}
+
+{% if groups['search'] | default([]) | length >= 1 %}
+index.subsystem.name=solr6
+solr.secureComms=secret
+solr.port={{ ports_cfg.search.http }}
+solr.host={{ solr_host }}
+{% elif groups['search_enterprise'] | default([]) | length >= 1 and repository_acs_is_enterprise %}
+index.subsystem.name=elasticsearch
+elasticsearch.createIndexIfNotExists=true
+elasticsearch.indexName=alfresco
+elasticsearch.host={{ elasticsearch_host }}
+elasticsearch.port={{ ports_cfg.elasticsearch.http }}
+elasticsearch.secureComms={% if elasticsearch_protocol == 'https' %}https{% else %}none{% endif +%}
+elasticsearch.user={{ elasticsearch_username | default('') }}
+elasticsearch.password={{ elasticsearch_password | default('') }}
+{% else %}
+index.subsystem.name=noindex
+{% endif %}
+
+# KEYSTORES
+
+dir.keystore={{ repository_content_data_folder }}/keystore
+{% if not repository_use_custom_keystores %}
+encryption.keystore.location={{ repository_content_data_folder }}/keystore/keystore
+encryption.keystore.keyMetaData.location={{ repository_content_data_folder }}/keystore/keystore-passwords.properties
+encryption.keyAlgorithm=DESede
+encryption.cipherAlgorithm=DESede/CBC/PKCS5Padding
+encryption.keystore.type=JCEKS
+encryption.keystore.backup.type=JCEKS
+{% endif %}
+
+encryption.ssl.truststore.location={{ java_truststore | default(java_home + '/lib/security/cacerts') }}
+encryption.ssl.truststore.type={{ repository_truststore_type }}
+
+{% if repository_default_keystore %}
+encryption.ssl.keystore.location={{ repository_default_keystore.path }}
+httpclient.config.transform.mTLSEnabled=true
+httpclient.config.transform.hostnameVerificationDisabled=true
+httpclient.config.sharedfilestore.mTLSEnabled=true
+httpclient.config.sharedfilestore.hostnameVerificationDisabled=true
+{% endif %}
+
+{%- macro ats_proto() -%}
+http
+{%- if repository_default_keystore.cert_containers | default([]) | length > 0 -%}
+s
+{%- endif -%}
+{%- endmacro %}
+
+local.transform.service.enabled=true
+localTransform.core-aio.url={{ ats_proto() }}://{{ ats_tengine_aio_host }}:{{ ports_cfg.transformers.tengine }}
+{% if repository_acs_is_enterprise %}
+transform.service.enabled=true
+transform.service.url={{ ats_proto() }}://{{ trouter_host }}:{{ ports_cfg.transformers.trouter }}
+sfs.url={{ ats_proto() }}://{{ sfs_host }}:{{ ports_cfg.sfs.http }}
+{% endif %}
+
+dsync.service.uris={% if repository_use_ssl | bool %}https{% else %}http{% endif %}://{% if repository_fqdn_alfresco %}{{ repository_fqdn_alfresco }}{% else %}{{ nginx_host }}{% endif %}:{% if repository_use_ssl | bool %}{{ ports_cfg.nginx.https }}{% else %}{{ ports_cfg.nginx.http }}{% endif %}/alfresco
+
+# CSRF filter overrides
+{% import 'xorigins_macros.j2' as _xorigins_protection %}
+csrf.filter.enabled={% if repository_csrf.enabled | bool %}true
+{% if repository_csrf.urls -%}
+  csrf.filter.referer={{ _xorigins_protection.compute(inventory_hostname, 'referer', repository_csrf.urls, '|') }}
+  csrf.filter.origin={{ _xorigins_protection.compute(inventory_hostname, 'origin', repository_csrf.urls, '|') }}
+{% endif %}
+csrf.filter.referer.always={{ 'true' if 'origin' in repository_csrf.force_headers | lower else 'false' }}
+csrf.filter.origin.always={{ 'true' if 'referer' in repository_csrf.force_headers | lower else 'false' }}
+{% else -%}
+  false
+{% endif %}
+
+# CORS filter overrides
+cors.enabled={% if repository_cors.enabled | bool %}true
+{% if repository_cors.urls -%}
+  cors.allowed.origins={{ _xorigins_protection.compute(inventory_hostname, 'origin', repository_cors.urls, ',') }}
+{% endif %}
+cors.allowed.methods={{ repository_cors.allowed_methods | default([]) | join(',') }}
+cors.allowed.headers={{ repository_cors.allowed_headers | default([]) | join(',') }}
+cors.exposed.headers={{ repository_cors.exposed_headers | default([]) | join(',') }}
+cors.support.credentials={{ repository_cors.support_credentials | default('true') }}
+cors.preflight.maxage={{ repository_cors.preflight_maxage | default('10') }}
+{% else -%}
+  false
+{% endif %}

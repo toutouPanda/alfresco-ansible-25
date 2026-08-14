@@ -1,0 +1,34 @@
+---
+dependency:
+  name: galaxy
+driver:
+  name: docker
+platforms:
+  - name: postgres-instance
+    image: $MOLECULE_ROLE_IMAGE
+    dockerfile: ../../../../tests/molecule/Dockerfile-noprivs.j2
+    command: "/lib/systemd/systemd"
+    privileged: true
+    tmpfs:
+      - /run
+      - /run/lock
+      - /tmp
+    volume_mounts:
+      - "/sys/fs/cgroup:/sys/fs/cgroup:ro"
+    groups:
+      - database
+      - repository
+      - syncservice
+provisioner:
+  name: ansible
+  env:
+    ANSIBLE_ROLES_PATH: "../../../../roles:~/.ansible/roles"
+  ansible_args:
+    - -e
+    - "@../../../../tests/molecule/secrets.yml"
+  config_options:
+    defaults:
+      pipelining: True
+  inventory:
+    links:
+      host_vars: host_vars

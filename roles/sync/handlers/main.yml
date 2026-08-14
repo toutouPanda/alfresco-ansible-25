@@ -1,0 +1,25 @@
+---
+# handlers file for sync
+- name: Enable-sync
+  become: true
+  ansible.builtin.service:
+    name: alfresco-sync
+    enabled: true
+    daemon_reload: true
+
+- name: Restart-sync
+  become: true
+  ansible.builtin.service:
+    name: alfresco-sync
+    state: restarted
+    daemon_reload: true
+  notify:
+    - Wait-alfresco-sync-ready
+
+- name: Wait-alfresco-sync-ready
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ ports_cfg.sync.http }}/alfresco/healthcheck"
+  register: sync_result
+  until: sync_result.status == 200
+  retries: 12
+  delay: 10

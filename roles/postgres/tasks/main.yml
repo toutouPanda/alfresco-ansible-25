@@ -1,0 +1,52 @@
+---
+- name: Include OS specific variables
+  ansible.builtin.include_vars: "{{ item }}"
+  loop: >-
+    {{ lookup('first_found', os_fallback, errors='ignore', wantlist=True) }}
+
+- name: Set PostgreSQL service name as fact
+  ansible.builtin.set_fact:
+    postgres_service: "{{ postgres_service }}"
+
+- name: Install PostgreSQL RDBMS
+  become: true
+  block:
+    - name: Prepare package manager
+      ansible.builtin.include_tasks: "{{ ansible_pkg_mgr }}_repo.yml"
+
+    - name: Install packages
+      ansible.builtin.package:
+        name: "{{ postgres_packages }}"
+        state: present
+        update_cache: true
+      notify:
+        - Enable-postgresql
+
+    - name: Initialize the system database
+      ansible.builtin.command:
+        cmd: "{{ postgres_setup_path }} initdb"
+        creates: "{{ postgres_data_path }}/PG_VERSION"
+      when: ansible_os_family == 'RedHat'
+
+- name: Configure PostgreSQL RDBMS
+  become: true
+  notify:
+    - Restart-postgresql
+  block:
+    - name: Configure PostgreSQL to listen on all IP interfaces
+      ansible.builtin.lineinfile:
+        path: "{{ postgres_conf_path }}/postgresql.conf"
+        regexp: ^\s*listen_addresses\s*=
+        line: "listen_addresses = '{{ postgres_listen_addresses }}'"
+
+    - name: Custom PostgreSQL Configuration
+      ansible.builtin.lineinfile:
+        path: "{{ postgres_conf_path }}/postgresql.conf"
+        regexp: "^{{ item['line'] }}"
+        line: "{{ item['line'] }}"
+        state: "{{ item['state'] | default(omit) }}"
+        backup: true
+      with_items: "{{ postgres_config }}"
+
+- name: Flush handlers
+  ansible.builtin.meta: flush_handlers

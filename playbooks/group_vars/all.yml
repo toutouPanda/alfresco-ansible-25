@@ -1,0 +1,104 @@
+# REQUIRED: add at least the Share url
+# The first entry will also be used to assume the base URL of this alfresco install
+# For more information please have a look at the
+# [security_doc](https://github.com/Alfresco/alfresco-ansible-deployment/blob/master/docs/SECURITY.md#specify-trustworthy-applications)
+# Toutes les URL par lesquelles les utilisateurs peuvent atteindre ce serveur.
+# Elles alimentent les origines autorisees CORS/CSRF de Share et d'ADW : une URL
+# absente d'ici donne une IHM Share cassee (appels bloques par le navigateur).
+acs_play_known_urls:
+  - "http://web-ged-pr01"
+  - "http://10.75.0.114"
+acs_play_major_version: 25
+
+acs_play_default_java_version: 17.0.18+8
+
+artifacts_repositories:
+  enterprise:
+    base_url: "https://artifacts.alfresco.com/nexus/content"
+    repository: "groups/private"
+    group_id: "org/alfresco"
+  community:
+    base_url: "https://artifacts.alfresco.com/nexus/content"
+    repository: "groups/public"
+    group_id: "org/alfresco"
+  development:
+    repository: "groups/internal"
+nexus_repository:
+  releases: >-
+    {{ artifacts_repositories.community.base_url }}/{{ artifacts_repositories.community.repository }}/{{ artifacts_repositories.community.group_id }}
+  enterprise_releases: >-
+    {{ artifacts_repositories.enterprise.base_url }}/{{ artifacts_repositories.enterprise.repository }}/{{ artifacts_repositories.enterprise.group_id }}
+  development_releases: >-
+    {{ artifacts_repositories.enterprise.base_url }}/{{ artifacts_repositories.development.repository }}/{{ artifacts_repositories.enterprise.group_id }}
+
+acs_play_java_core: "{{ acs_play_java_version.split('+')[0] }}"
+acs_play_java_major: "{{ acs_play_java_core.split('.')[0] }}"
+acs_play_default_truststore_type: "{{ 'PKCS12' if acs_play_java_major | int >= 21 else 'JCEKS' }}"
+
+acs_play_repository_acs_edition: Enterprise
+
+acs_play_skip_upgrade_checks: false
+
+default_jdbc_pg_driver_version: 42.7.9
+default_jdbc_pg_driver_base_url: https://repo.maven.apache.org/maven2/org/postgresql/postgresql
+default_jdbc_pg_driver_url: >-
+  {{ '{0}/{1}/postgresql-{1}.jar'.format(default_jdbc_pg_driver_base_url, default_jdbc_pg_driver_version) }}
+default_jdbc_pg_driver_class: org.postgresql.Driver
+
+# ---------------------------------------------------------------------------
+# EXTERNAL DATABASE -- Microsoft SQL Server hosted on a separate VM
+# ---------------------------------------------------------------------------
+# Setting acs_play_repo_db_url to a non empty value makes the playbook skip the
+# whole "Database Role" play (roles/postgres is never applied) and use the
+# server described below instead.
+# Cible : sql-infra22pr01.rivp-groupe.net\ALFRESCO, base SQL_PRALFRESCO
+acs_sqlserver_host: "sql-infra22pr01.rivp-groupe.net"
+acs_sqlserver_instance: "ALFRESCO"
+# Port TCP statique de l'instance nommee. LAISSER VIDE => le driver interroge le
+# service SQL Server Browser (UDP 1434) pour le decouvrir.
+# Renseigner ce port des que le DBA le communique : c'est plus robuste et ca
+# supprime la dependance a SQL Browser / UDP 1434.
+acs_sqlserver_port: ""
+acs_sqlserver_db_name: "SQL_PRALFRESCO"
+# >>> A CONFIRMER avec le DBA si le login suit une convention de nommage <<<
+acs_sqlserver_db_username: "alfresco"
+# mssql-jdbc >= 10 active TLS par defaut. On garde encrypt=false tant que le
+# certificat de SQL Server n'est pas approuve par le truststore de la JVM.
+# Pour du TLS : "lockTimeout=1000;encrypt=true;trustServerCertificate=true;applicationName=Alfresco"
+acs_sqlserver_url_params: "lockTimeout=1000;encrypt=false;applicationName=Alfresco"
+
+# ATTENTION (doc Microsoft) : si portNumber ET instanceName sont presents dans
+# l'URL, le PORT gagne et instanceName est IGNORE en silence. On n'emet donc
+# jamais les deux -- port statique s'il est connu, sinon instanceName.
+acs_sqlserver_target: "{{ acs_sqlserver_host }}{% if acs_sqlserver_port | string | length > 0 %}:{{ acs_sqlserver_port }}{% elif acs_sqlserver_instance | length > 0 %};instanceName={{ acs_sqlserver_instance }}{% endif %}"
+
+acs_play_repo_db_url: "jdbc:sqlserver://{{ acs_sqlserver_target }};databaseName={{ acs_sqlserver_db_name }};{{ acs_sqlserver_url_params }}"
+acs_play_repo_db_driver: "com.microsoft.sqlserver.jdbc.SQLServerDriver"
+acs_play_repo_db_name: "{{ acs_sqlserver_db_name }}"
+acs_play_repo_db_username: "{{ acs_sqlserver_db_username }}"
+acs_play_sync_db_url: ""
+acs_play_sync_db_driver: "{{ default_jdbc_pg_driver_class }}"
+acs_play_sync_db_name: "alfresco-sync"
+acs_play_sync_db_username: "alfresco-sync"
+
+# A default keystore is stored in /var/opt/alfresco/content-services/keystore,
+# to replace this with a custom keystore place the keystore file in the "configuration_files/keystores" folder
+# and change this flag to true. See the deployment guide for more details.
+acs_play_repository_use_custom_keystores: false
+acs_play_use_ssl: false
+# Hote de reference : sert a construire alfresco.host / share.host /
+# aos.baseUrlOverwrite, donc les liens generes par le repository.
+# NB: nom temporaire. S'il ne resout pas en DNS depuis les postes clients,
+# basculer sur "10.75.0.114" (l'IP est deja dans acs_play_known_urls).
+acs_play_fqdn_alfresco: "web-ged-pr01"
+
+ansible_installation_status_file: "/opt/alfresco/.ansible_alfresco_components.status"
+autogen_unsecure_secrets: false
+
+# Community Edition vars
+acs_play_community_repository_acs_artifact_name: alfresco-content-services-community-distribution
+acs_play_community_repository_acs_repository: "{{ nexus_repository.releases }}"
+acs_play_community_repository_amp_googledrive_repo_artifact_name: alfresco-googledrive-repo-community
+acs_play_community_repository_amp_googledrive_repo_repository: "{{ nexus_repository.releases }}/integrations"
+
+ports_cfg_postgres_sql: 5432

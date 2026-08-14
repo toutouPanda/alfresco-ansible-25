@@ -1,0 +1,35 @@
+---
+argument_specs:
+  main:
+    short_description: Search Enterprise
+    author: Alfresco Ops Readiness
+    options:
+      search_enterprise_version:
+        description: Search Enterprise version to use for deployment
+        required: false
+      search_enterprise_zip_url:
+        description: Search Enterprise dependency URL to use for deployment
+        required: false
+      search_enterprise_zip_checksum:
+        description: Search Enterprise dependency checksum URL to use for deployment
+        required: false
+      search_enterprise_zip_username:
+        description: |
+          Username to use to download the Search Enterprise zip file
+        required: false
+      search_enterprise_zip_password:
+        description: |
+          Password to use to download the Search Enterprise zip file
+        required: false
+      search_enterprise_repo_db_url:
+        description: |
+          URL of the database to use for the Search Enterprise Bulk Ingester
+        required: false
+      search_enterprise_repo_db_username:
+        description: |
+          Username to use to connect to the database for the Search Enterprise Bulk Ingester
+        required: false
+      search_enterprise_repo_db_password:
+        description: |
+          Password to use to connect to the database for the Search Enterprise Bulk Ingester
+        required: false

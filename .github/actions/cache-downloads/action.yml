@@ -1,0 +1,55 @@
+name: cache-downloads
+description: Cache downloads to speed up the workflow
+inputs:
+  cache-name:
+    description: A keyword to compose the cache final name
+    required: true
+    default: default
+  cache-version:
+    description: Increase to force recreating the cache
+    required: true
+    default: "2"
+runs:
+  using: composite
+  steps:
+    - name: Peek activemq_version
+      id: activemq_peek
+      run: |
+        echo "activemq_version=$(yq '.activemq_version' roles/activemq/defaults/main.yml)" >> $GITHUB_OUTPUT
+      shell: bash
+
+    - name: Peek tomcat_version
+      id: tomcat_peek
+      run: |
+        echo "tomcat_version=$(yq '.tomcat_version' roles/tomcat/defaults/main.yml)" >> $GITHUB_OUTPUT
+      shell: bash
+
+    - name: Restore downloaded artifacts
+      id: artifacts-cache
+      uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      with:
+        path: 'downloads/**'
+        key: |
+          ${{
+            format(
+              'cache-downloads-v{0}-{1}-mq{2}-tc{3}-{4}',
+              inputs.cache-version,
+              inputs.cache-name,
+              steps.activemq_peek.outputs.activemq_version,
+              steps.tomcat_peek.outputs.tomcat_version,
+              hashFiles('.github/prefetch-artifacts.yml')
+            )
+          }}
+
+    - name: Prefetch artifacts
+      shell: bash
+      if: steps.artifacts-cache.outputs.cache-hit != 'true'
+      run: |
+        pipenv run ansible-playbook -i inventory_local.yml ${{ github.workspace }}/.github/prefetch-artifacts.yml
+
+    - name: Save downloaded artifacts
+      uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      if: steps.artifacts-cache.outputs.cache-hit != 'true'
+      with:
+        path: 'downloads/**'
+        key: ${{ steps.artifacts-cache.outputs.cache-primary-key }}

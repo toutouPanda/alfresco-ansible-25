@@ -1,0 +1,55 @@
+---
+# tasks file for search_enterprise
+- name: >-
+    Download elasticsearch connector distribution
+    {{ search_enterprise_version }}
+  ansible.builtin.get_url:
+    url: "{{ search_enterprise_zip_url }}"
+    dest: "{{ download_location }}/{{ search_enterprise_artifact_name }}-{{ search_enterprise_version }}.zip"
+    checksum: "{{ search_enterprise_zip_checksum }}"
+    mode: "0644"
+    url_username: "{{ search_enterprise_zip_username | default(omit) }}"
+    url_password: "{{ search_enterprise_zip_password | default(omit) }}"
+
+- name: Install & configure Search services
+  become: true
+  block:
+    - name: Create search binaries, config and data directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ username }}"
+        group: "{{ group_name }}"
+        mode: "0755"
+      loop:
+        - "{{ search_enterprise_binaries_dir }}"
+        - "{{ search_enterprise_config_dir }}"
+        - "{{ search_enterprise_data_dir }}"
+
+    - name: Extract distribution zip in binaries
+      ansible.builtin.unarchive:
+        src: "{{ download_location }}/{{ search_enterprise_artifact_name }}-{{ search_enterprise_version }}.zip"
+        dest: "{{ search_enterprise_binaries_dir }}"
+        remote_src: true
+        creates: "{{ search_enterprise_binaries_dir }}/README.md"
+        owner: "{{ username }}"
+        group: "{{ group_name }}"
+
+    - name: Add elasticsearch-connector reindex service
+      ansible.builtin.template:
+        src: elasticsearch-connector-reindex.service.j2
+        dest: /etc/systemd/system/elasticsearch-connector-reindex.service
+        owner: root
+        group: root
+        mode: "0640"
+
+    - name: Add elasticsearch-connector service
+      ansible.builtin.template:
+        src: elasticsearch-connector.service.j2
+        dest: /etc/systemd/system/elasticsearch-connector.service
+        owner: root
+        group: root
+        mode: "0640"
+      notify:
+        - Enable elasticsearch-connector service
+        - Restart elasticsearch-connector service

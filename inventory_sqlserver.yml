@@ -1,0 +1,97 @@
+---
+# =============================================================================
+# Alfresco Content Services 25.3 Enterprise
+#   * single Ubuntu 22.04/24.04 VM hosting every component
+#   * database  -> EXTERNAL Microsoft SQL Server on another VM (not managed here)
+#   * search    -> Solr6 / Alfresco Search Services (NOT Elasticsearch)
+#
+# Run the playbook FROM the Ubuntu VM itself (ansible_connection: local).
+# To drive it from a remote control node instead, replace the `all.vars` block
+# with the ssh settings of inventory_ssh.yml and swap `localhost` for the real
+# host (see README-SQLSERVER.md).
+# =============================================================================
+all:
+  vars:
+    ansible_connection: local
+
+  children:
+    repository:
+      hosts:
+        localhost:
+
+    # EMPTY ON PURPOSE: the database lives on a separate VM and is declared
+    # through acs_play_repo_db_url in playbooks/group_vars/all.yml.
+    # Any host here would make the playbook install a local PostgreSQL.
+    database:
+      hosts:
+
+    activemq:
+      children:
+        repository:
+
+    # Solr6 search engine (Alfresco Search Services)
+    search:
+      children:
+        repository:
+
+    # EMPTY ON PURPOSE: Elasticsearch / Alfresco Search Enterprise disabled.
+    # A host in either group would flip index.subsystem.name to elasticsearch.
+    search_enterprise:
+      hosts:
+    elasticsearch:
+      hosts:
+
+    # Keycloak SSO support (optional)
+    identity:
+      hosts:
+
+    nginx:
+      children:
+        repository:
+
+    acc:
+      children:
+        repository:
+
+    adw:
+      children:
+        repository:
+
+    transformers:
+      children:
+        repository:
+
+    # EMPTY ON PURPOSE: Sync Service requires a second database
+    # (acs_play_sync_db_url / sync_db_password).
+    syncservice:
+      hosts:
+
+    # EMPTY ON PURPOSE: Audit Storage requires OpenSearch/Elasticsearch.
+    audit_storage:
+      hosts:
+
+    other_repo_clients:
+      hosts:
+
+    trusted_resource_consumers:
+      children:
+        repository:
+        nginx:
+        adw:
+        other_repo_clients:
+
+    external_activemq:
+      hosts:
+
+    external_elasticsearch:
+      hosts:
+
+    external_identity:
+      hosts:
+
+    external:
+      children:
+        external_activemq:
+        external_elasticsearch:
+        external_identity:
+        other_repo_clients:

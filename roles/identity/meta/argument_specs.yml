@@ -1,0 +1,80 @@
+---
+argument_specs:
+  main:
+    short_description: Main entrypoint for the identity role
+    options:
+      identity_admin_username:
+        type: str
+        default: admin
+        description: |
+          Username of the keycloak instance admin user
+      identity_admin_password:
+        type: str
+        required: true
+        description: |
+          Password of the keycloak instance admin user
+      identity_keycloak_http_port:
+        type: int
+        default: 8080
+        description: |
+          Port where to expose the keycloak instance
+      identity_keycloak_start_dev:
+        type: bool
+        default: true
+        description: |
+          If keycloak should be started in development mode. Not suitable for production
+      identity_keycloak_quarkus_proxy_headers:
+        type: str
+        default: xforwarded
+        description: |
+          Fine tune specific behaviour when running keycloak behind a proxy
+      identity_keycloak_host:
+        type: str
+        default: localhost
+        description: |
+          Hostname where clients can reach the keycloak instance
+      identity_keycloak_http_relative_path:
+        type: str
+        default: /auth
+        description:
+          Path relative to / for serving keycloak resources
+      identity_url:
+        type: str
+        default:
+        description:
+          Set the base URL for frontend URL and admin console, including scheme, host, port and path.
+          Will override identity_keycloak_host, identity_keycloak_http_port.
+      identity_keycloak_additional_env_vars:
+        type: "list"
+        default: "[]"
+        description:
+          "List of additional env variables of { key: str, value: str} to be put in sysconfig file"
+  realm:
+    short_description: Configure the keycloak realm
+    options:
+      identity_admin_username:
+        type: str
+        default: admin
+        description: |
+          Username of the keycloak instance admin user
+      identity_default_realm_id:
+        type: str
+        default: alfresco
+        description: |
+          The id of the default realm to be created
+      identity_default_client_id:
+        type: str
+        default: alfresco
+        description: |
+          The id of the default client to be created
+      identity_default_client_implicit_flow_enabled:
+        type: bool
+        default: true
+        description: |
+          Enable or disable the implicit flow for the default client inside the default realm
+      identity_known_urls:
+        type: list
+        elements: str
+        default: []
+        description: |
+          A list of possible origin URLs which are allowed to interact with the configured realm

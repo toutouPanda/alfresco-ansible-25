@@ -1,0 +1,157 @@
+---
+argument_specs:
+  main:
+    short_description: Main entrypoint for the repository role
+    options:
+      repository_raw_properties:
+        type: list
+        required: false
+        default: []
+        elements: str
+        description: |
+          a list of file path containing properties to include as-is in the
+          alfresco-global.properties.
+      repository_properties:
+        type: dict
+        required: false
+        description: |
+          A YAML data structure containing all the properties you want to set
+          in the alfresco-global.properties file. YAML of each leaf node is
+          expanded as a path separated by '.' (e.g. alfresco.cluster.enabled)
+      repository_default_keystore:
+        type: dict
+        required: false
+        no_log: true
+        description: |
+          Representation of the JRE keystore as expected by the java role.
+          Check the java role's argument specification for details.
+          Pay special attention to using the same passphrase for the keystore
+          than the one used in the source PKCS12 certificate container.
+      repository_identity_url:
+        type: str
+        required: false
+        description: |
+          If set, enable that host as identity service url
+      repository_identity_client_id:
+        type: str
+        required: false
+        default: alfresco
+        description: |
+          The name of the oauth client to be used when contacting the identity
+          service
+      repository_identity_client_secret:
+        type: str
+        required: false
+        description: |
+          The secret for the oauth client to be used when contacting the
+          identity service - can be left blank if the oauth client is public
+      repository_identity_realm:
+        type: str
+        required: false
+        default: alfresco
+        description: |
+          The realm to be used when contacting the identity service
+      repository_jdbc_pg_driver_version:
+        type: str
+        required: false
+        description: |
+          The version of the PostgreSQL JDBC driver to download
+      repository_jdbc_driver_class:
+        type: str
+        required: false
+        default: org.postgresql.Driver
+        description: |
+          The class name of the JDBC driver to use
+      repository_jdbc_driver_url:
+        type: str
+        required: false
+        description: |
+          The URL to download the JDBC driver from
+      repository_jdbc_driver_checksum:
+        type: str
+        required: false
+        description: |
+          The checksum of the JDBC driver with format <algorithm>:<checksum>
+      repository_api_explorer_version:
+        type: str
+        required: false
+        description: |
+          The version of the API Explorer to deploy
+      repository_api_explorer_archive_url:
+        type: str
+        required: false
+        description: |
+          The URL to download the API Explorer archive from
+      repository_api_explorer_archive_checksum:
+        type: str
+        required: false
+        description: |
+          The URL to download the checksum of the API Explorer archive from
+      repository_extra_war_downloads:
+        type: list
+        required: false
+        description: |
+          A list containing the URL and checksum of additional WAR files to download
+      repository_api_explorer_nexus_username:
+        type: str
+        required: false
+        description: |
+          The username to use when downloading WAR files from Nexus
+      repository_api_explorer_nexus_password:
+        type: str
+        required: false
+        no_log: true
+        description: |
+          The password to use when downloading WAR files from Nexus
+      repository_api_explorer_enabled:
+        type: bool
+        required: false
+        default: true
+        description: |
+          Whether to deploy the API Explorer or not
+      repository_nexus_username:
+        type: str
+        required: false
+        description: |
+          Default username to when downloading artifacts from nexus
+      repository_nexus_password:
+        type: str
+        required: false
+        no_log: true
+        description: |
+          Default password to when downloading artifacts from nexus
+      repository_amp_downloads:
+        type: list
+        required: false
+        description: |
+          A list containing the URL and checksum of AMP files to download
+      repository_extra_amp_downloads:
+        type: list
+        required: false
+        description: |
+          A list containing the URL and checksum of additional AMP files to download
+      repository_acs_is_enterprise:
+        type: bool
+        required: false
+        default: true
+        description: |
+          Whether the ACS distribution is enterprise or not
+      repository_trusted_urls:
+        type: list
+        required: false
+        default: []
+        elements: str
+        description: |
+          A list of URLs that are considered trusted by the repository
+      repository_use_ssl:
+        type: bool
+        required: false
+        default: false
+        description: |
+          Whether to enable SSL or not
+      repository_fqdn_alfresco:
+        type: str
+        required: false
+        default: ""
+        description: |
+          The FQDN of the Alfresco instance

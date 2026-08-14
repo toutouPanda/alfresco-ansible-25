@@ -1,0 +1,87 @@
+---
+# tasks file for sfs
+- name: Create Java keystore
+  ansible.builtin.include_role:
+    name: ../roles/java
+    tasks_from: keystores
+  when: sfs_ats_keystore
+  vars:
+    java_keystore: "{{ sfs_ats_keystore }}"
+- name: Install SFS
+  become: true
+  block:
+    - name: Ensure a list of packages installed
+      ansible.builtin.package:
+        name: "{{ sfs_utils }}"
+        state: present
+
+    - name: Create transform services folder
+      ansible.builtin.file:
+        path: "{{ ats_home }}"
+        state: directory
+        owner: "{{ username }}"
+        group: "{{ group_name }}"
+        mode: "0755"
+
+    - name: Download {{ sfs_artifact_name }}-{{ sfs_version }}.jar
+      ansible.builtin.get_url:
+        url: "{{ sfs_archive_url }}"
+        dest: "{{ ats_home }}/{{ sfs_artifact_name }}-{{ sfs_version }}.jar"
+        checksum: "{{ sfs_archive_checksum }}"
+        owner: "{{ username }}"
+        group: "{{ group_name }}"
+        mode: "0644"
+        url_username: "{{ sfs_archive_username | default(omit) }}"
+        url_password: "{{ sfs_archive_password | default(omit) }}"
+        timeout: 570
+
+    - name: Add sfs startup script
+      ansible.builtin.template:
+        src: ats-shared-fs.sh.j2
+        dest: "{{ binaries_folder }}/ats-shared-fs.sh"
+        owner: "{{ username }}"
+        group: "{{ group_name }}"
+        mode: "0755"
+      notify:
+        - Restart-sfs
+
+    - name: Add AIO config mTLS config file
+      ansible.builtin.template:
+        src: mtls.properties.j2
+        dest: "{{ ats_home }}/sfs-mtls.properties"
+        owner: "{{ username }}"
+        group: "{{ group_name }}"
+        mode: "0600"
+      when: sfs_ats_keystore
+      notify:
+        - Restart-sfs
+
+    - name: Add paths to setenv file
+      ansible.builtin.blockinfile:
+        path: "{{ config_folder }}/setenv.sh"
+        marker: "# {mark} ATS COMMON ENV VARS"
+        owner: "{{ username }}"
+        group: "{{ group_name }}"
+        block: |
+          export ATS_HOME={{ binaries_folder }}/transform-service
+          export ATS_TENGINE_AIO_HOST={{ ats_tengine_aio_host }}
+          export ATS_SHARED_FS_HOST={{ sfs_host }}
+        insertafter: EOF
+
+    - name: Add alfresco-shared-fs service
+      ansible.builtin.template:
+        src: alfresco-shared-fs.service
+        dest: "/etc/systemd/system/alfresco-shared-fs.service"
+        owner: "{{ username }}"
+        group: "{{ group_name }}"
+        mode: "0644"
+      notify:
+        - Enable-sfs
+        - Restart-sfs
+
+- name: Check if service restart is needed
+  ansible.builtin.debug:
+    msg: triggering service restart
+  when: java_needs_restart
+  changed_when: true
+  notify: Restart-sfs

@@ -1,0 +1,64 @@
+---
+default_language_version:
+  python: python3.11
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+      - id: check-json
+      - id: check-xml
+      - id: check-merge-conflict
+      - id: fix-byte-order-marker
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+
+  - repo: https://github.com/Riverside-Healthcare/djLint
+    rev: v1.36.4
+    hooks:
+      - id: djlint-jinja
+
+  - repo: https://github.com/jackdewinter/pymarkdown
+    rev: v0.9.31
+    hooks:
+      - id: pymarkdown
+        files: (README\.md$|docs/.*\.md)
+        args:
+          - --config=.pymarkdown.json
+          - scan
+
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: ["--baseline", ".secrets.baseline"]
+
+  - repo: local
+    hooks:
+      - id: generate-table
+        name: generate components version table
+        entry: python ./scripts/generate-comp-ver-table.py
+        language: python
+        language_version: python3.11
+        additional_dependencies: [pyyaml]
+        pass_filenames: false
+        always_run: true
+      - id: pipenv install
+        name: ensure pipenv env is up to date
+        language: system
+        pass_filenames: false
+        entry: pipenv install --deploy --dev
+      - id: ansible-lint
+        name: ansible-lint
+        language: system
+        pass_filenames: false
+        entry: pipenv run ansible-lint
+      - id: ansible-lint-ignore
+        name: Ensure .ansible-lint-ignore contains existing files
+        language: system
+        entry: sh -c "cat .ansible-lint-ignore | grep -v '^#' | awk -F' ' '{ print$1 }' | xargs -L1 ls > /dev/null"
+        pass_filenames: false
+        always_run: true

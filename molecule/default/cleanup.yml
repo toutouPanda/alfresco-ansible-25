@@ -1,0 +1,46 @@
+---
+- name: Cleanup
+  hosts: localhost
+  gather_facts: false
+  vars:
+    project_dir: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') }}"
+  tasks:
+    - name: Gather EC2 facts
+      amazon.aws.ec2_metadata_facts:
+      delegate_to: "{{ groups['nginx'] | first }}"
+      failed_when: false
+      ignore_unreachable: true
+
+    - name: Set hostname fact from EC2 or localhost
+      ansible.builtin.set_fact:
+        node_hostname: "{{ ansible_ec2_public_hostname | default('localhost') }}"
+
+    - name: Set variables
+      ansible.builtin.set_fact:
+        certificate_domain: "{{ node_hostname }}"
+        private_key_path: "{{ project_dir }}/configuration_files/ssl_certificates/{{ node_hostname }}.key"
+        cert_path: "{{ project_dir }}/configuration_files/ssl_certificates/{{ node_hostname }}.crt"
+
+    - name: Set hostname as known_urls
+      ansible.builtin.blockinfile:
+        state: absent
+        marker: >-
+          # {mark} KNOWN_URLS VAR
+        path: ../{{ lookup('env', 'MOLECULE_SCENARIO_NAME') }}/host_vars/{{ item }}.yml
+      loop: "{{ groups.repository }}"
+
+    - name: Cleanup cert
+      delegate_to: localhost
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ private_key_path }}"
+        - "{{ cert_path }}"
+
+    - name: Configure FQDN in extra vars file
+      delegate_to: localhost
+      ansible.builtin.replace:
+        path: "{{ project_dir }}/tests/test-ssl.yml"
+        regexp: "{{ certificate_domain }}"
+        replace: TEST_FQDN

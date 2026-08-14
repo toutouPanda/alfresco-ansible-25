@@ -1,0 +1,24 @@
+---
+- name: Converge
+  hosts: all
+  tasks:
+    - name: "Include activemq"
+      ansible.builtin.include_role:
+        name: "activemq"
+    - name: Flush Handlers
+      ansible.builtin.meta: flush_handlers
+    - name: "Include AIO"
+      ansible.builtin.include_role:
+        name: "transformers"
+    - name: Flush Handlers
+      ansible.builtin.meta: flush_handlers
+    - name: "Include trouter"
+      ansible.builtin.include_role:
+        name: "trouter"
+      vars:
+        trouter_environment:
+          JAVA_OPTS:
+            - -Xms800m
+            - -Xmx900m
+        trouter_archive_username: "{{ lookup('env', 'NEXUS_USERNAME') }}"
+        trouter_archive_password: "{{ lookup('env', 'NEXUS_PASSWORD') }}"

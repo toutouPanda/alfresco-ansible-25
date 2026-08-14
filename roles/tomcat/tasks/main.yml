@@ -1,0 +1,146 @@
+---
+- name: Set path for local download
+  delegate_to: localhost
+  ansible.builtin.stat:
+    path: "{{ lookup('env', 'GITHUB_WORKSPACE') | default(lookup('env', 'PWD'), True) }}"
+  register: tomcat_local_path
+
+- name: Create download location
+  delegate_to: localhost
+  ansible.builtin.file:
+    path: "{{ tomcat_local_path.stat.path }}/downloads"
+    state: directory
+    mode: "0755"
+  register: tomcat_download_path
+
+- name: Download Tomcat archive # noqa ignore-errors
+  delegate_to: localhost
+  ansible.builtin.get_url:
+    url: "{{ tomcat_artifact_url }}"
+    checksum: "{{ tomcat_artifact_checksum }}"
+    dest: "{{ tomcat_download_path.path }}/apache-tomcat-{{ tomcat_version }}.tar.gz"
+    mode: "0644"
+  ignore_errors: true
+
+- name: Copy archive to target
+  ansible.builtin.copy:
+    src: "{{ tomcat_download_path.path }}/apache-tomcat-{{ tomcat_version }}.tar.gz"
+    dest: "{{ download_location }}/apache-tomcat-{{ tomcat_version }}.tar.gz"
+    mode: "0644"
+
+- name: Install Tomcat {{ tomcat_version }}
+  become: true
+  block:
+    - name: Unarchive a file with extra options
+      ansible.builtin.unarchive:
+        src: "{{ download_location }}/apache-tomcat-{{ tomcat_version }}.tar.gz"
+        dest: "{{ tomcat_home | dirname }}"
+        remote_src: true
+        creates: "{{ tomcat_home }}"
+        group: "{{ group_name }}"
+        owner: "{{ username }}"
+
+    - name: Add {{ binaries_folder }}/tomcat.sh
+      ansible.builtin.template:
+        src: tomcat.sh.j2
+        dest: "{{ binaries_folder }}/tomcat.sh"
+        group: "{{ group_name }}"
+        owner: "{{ username }}"
+        mode: "0750"
+      tags:
+        - molecule-idempotence-notest  # Files is dealt with outside this role
+
+    - name: Prepare Tomcat config
+      block:
+        - name: Copy files from "{{ tomcat_home }} to {{ tomcat_config_dir }}"
+          ansible.builtin.copy:
+            remote_src: true
+            src: "{{ tomcat_home }}/{{ item.src }}"
+            dest: "{{ item.dest }}"
+            group: "{{ group_name }}"
+            owner: "{{ username }}"
+            mode: preserve
+          loop:
+            - src: conf
+              dest: "{{ tomcat_config_dir }}"
+            - src: temp
+              dest: "{{ tomcat_working }}"
+            - src: work
+              dest: "{{ tomcat_working }}"
+      rescue:
+        - name: Check Unix FHS dirs
+          ansible.builtin.stat:
+            path: "{{ item }}"
+          register: tomcat_dest_dirs
+          loop:
+            - "{{ tomcat_config_dir }}/conf"
+            - "{{ tomcat_working }}/temp"
+            - "{{ tomcat_working }}/work"
+        - name: Handle missing sources
+          ansible.builtin.debug:
+            msg: Looks like the FHS directory structure is already in place
+          when: >-
+            not tomcat_dest_dirs.results
+            | map(attribute='stat.exists')
+            | difference([True])
+        - name: Fail on unexcepted FHS inconsistency
+          ansible.builtin.fail:
+            msg: >
+              Oh oh that should not happen...
+              Looks like the FHS directory structure is broken and can't be
+              re-created.
+              Please reinstall from scratch :(
+          when: >-
+            tomcat_dest_dirs.results
+            | map(attribute='stat.exists')
+            | difference([True])
+
+    - name: Remove old files from {{ tomcat_home }}
+      ansible.builtin.file:
+        path: "{{ tomcat_home }}/{{ item }}"
+        state: absent
+      loop:
+        - conf
+        - temp
+        - work
+        - logs
+        - webapps
+
+    - name: Add "{{ tomcat_config_dir }}/conf/server.xml"
+      ansible.builtin.template:
+        src: server.xml
+        dest: "{{ tomcat_config_dir }}/conf/server.xml"
+        group: "{{ group_name }}"
+        owner: "{{ username }}"
+        mode: "0640"
+
+    - name: Create a symbolic link {{ tomcat_config_dir }}/logs
+      ansible.builtin.file:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        group: "{{ group_name }}"
+        owner: "{{ username }}"
+        state: link
+        force: true
+      loop:
+        - src: "{{ logs_folder }}"
+          dest: "{{ tomcat_config_dir }}/logs"
+        - src: "{{ tomcat_working }}/work"
+          dest: "{{ tomcat_config_dir }}/work"
+
+    - name: Add TOMCAT_HOME to setenv script
+      ansible.builtin.lineinfile:
+        path: "{{ config_folder }}/setenv.sh"
+        line: "export TOMCAT_HOME={{ tomcat_home }}"
+        group: "{{ group_name }}"
+        owner: "{{ username }}"
+
+    - name: Add alfresco-content.service
+      ansible.builtin.template:
+        src: alfresco-content.service
+        dest: /etc/systemd/system/alfresco-content.service
+        owner: root
+        group: root
+        mode: "0644"
+      notify:
+        - Enable-alfresco-content

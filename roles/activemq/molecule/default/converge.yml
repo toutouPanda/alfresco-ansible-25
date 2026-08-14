@@ -1,0 +1,13 @@
+---
+- name: Converge
+  hosts: all
+  tasks:
+    - name: "Include roles/activemq"
+      ansible.builtin.include_role:
+        name: "activemq"
+      vars:
+        activemq_environment:
+          ACTIVEMQ_OPTS:
+            - -Xms300m
+            - -Xmx900m
+            - $ACTIVEMQ_OPTS

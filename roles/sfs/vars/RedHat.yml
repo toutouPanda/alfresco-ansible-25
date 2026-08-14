@@ -1,0 +1,4 @@
+---
+sfs_utils:
+  - unzip
+  - which

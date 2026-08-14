@@ -1,0 +1,3 @@
+---
+acs_play_use_ssl: true
+acs_play_fqdn_alfresco: "TEST_FQDN"

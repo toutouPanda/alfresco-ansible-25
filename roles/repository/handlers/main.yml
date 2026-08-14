@@ -1,0 +1,10 @@
+---
+# handlers file for repository
+- name: Systemd-reload
+  become: true
+  ansible.builtin.service:
+    daemon_reload: true
+
+- name: Restart-alfresco-content
+  ansible.builtin.include_tasks:
+    file: restart.yml

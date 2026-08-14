@@ -1,0 +1,40 @@
+argument_specs:
+  main:
+    short_description: Main entrypoint for the nginx role
+    options:
+      nginx_setup_service:
+        description: If the nginx base service should be installed
+        type: bool
+        default: true
+      nginx_setup_vhosts:
+        description: If the nginx reverse proxy vhosts should be enabled
+        type: bool
+        default: true
+      nginx_set_proxy_headers:
+        description: Useful when nginx node is behind another reverse proxy (e.g. should be disabled when behind an AWS ELB)
+        type: bool
+        default: true
+      nginx_security_headers_enabled:
+        description: Add default security headers to mitigate vulnerabilities like XSS, clickjacking, and data injection attacks.
+        type: bool
+        default: true
+      nginx_absolute_redirect:
+        description: Useful when nginx node is behind another reverse proxy (e.g. should be disabled when behind an AWS ELB)
+        type: bool
+        default: true
+      nginx_max_upload_size:
+        description: The maximum allowed size of an upload (client request body)
+        type: str
+        default: 5g
+      nginx_max_upload_time:
+        description: Timeout of uploads (client requests read timeout)
+        type: str
+        default: 20m
+      nginx_use_ssl:
+        description: If the nginx vhosts should be configured to use SSL
+        type: bool
+        default: false
+      nginx_fqdn_alfresco:
+        description: The FQDN of the Alfresco instance
+        type: str
+        default: ""

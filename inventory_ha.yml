@@ -1,0 +1,98 @@
+---
+# Inventory file for a high-availability deployment - only Enterprise edition
+# Run with ansible-playbook playbooks/acs.yml -i inventory_ha.yml
+all:
+  vars:
+    # Each ssh variable below can be moved to groups (all.children.*.vars) or
+    # hosts (all.children.group.hosts.*) sections if they are different for each
+    # host. precedence; hosts_vars > groups_vars > global_vars. more details:
+    # https://docs.ansible.com/ansible/latest/user_guide/intro_inventory.html#adding-variables-to-inventory
+    ansible_connection: ssh
+    ansible_user: root
+    # Comment if no SSH key is in use and add `-k` on the command line instead
+    # (or `-K`in case sudo requires a password)
+    ansible_private_key_file: "/path/to/ssh_key.rsa"
+
+  children:
+    database:
+      hosts:
+        db.infra.local:
+
+    repository:
+      hosts:
+        ecm1.infra.local:
+        ecm2.infra.local:
+        ingester.infra.local:
+          repository_cluster_keepoff: true
+
+    activemq:
+      hosts:
+        mq.infra.local:
+
+    # Solr search engine (alternative to Enterprise Search)
+    search:
+      hosts:
+        # fts.infra.local:
+
+    # Enterprise Search (default search engine)
+    search_enterprise:
+      hosts:
+        fts.infra.local:
+    elasticsearch:
+      hosts:
+        fts.infra.local:
+
+    # Keycloak SSO support (optional)
+    identity:
+      hosts:
+        # keycloak.infra.local:
+
+    nginx:
+      hosts:
+        proxy.infra.local:
+
+    acc:
+      hosts:
+        web.infra.local:
+
+    adw:
+      hosts:
+        web.infra.local:
+
+    transformers:
+      hosts:
+        render.infra.local:
+
+    syncservice:
+      hosts:
+        sync.infra.local:
+
+    audit_storage:
+      hosts:
+        audit.infra.local:
+
+    other_repo_clients:
+      hosts:
+
+    trusted_resource_consumers:
+      children:
+        repository:
+        nginx:
+        adw:
+        other_repo_clients:
+
+    external_activemq:
+      hosts:
+
+    external_elasticsearch:
+      hosts:
+
+    external_identity:
+      hosts:
+
+    external:
+      children:
+        external_activemq:
+        external_elasticsearch:
+        external_identity:
+        other_repo_clients:

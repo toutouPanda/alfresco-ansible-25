@@ -1,0 +1,19 @@
+---
+transformers_imagemagick_packages:
+  - imagemagick-distribution-libs-el8
+  - imagemagick-distribution-el8
+
+transformers_utils:
+  - libX11-xcb
+  - cairo
+  - cups-libs
+  - libSM
+  - unzip
+  - which
+  - fontconfig
+  - dejavu-fonts-common
+  - fontpackages-filesystem
+  - freetype
+  - libpng
+  - dejavu-sans-fonts
+  - perl-Image-ExifTool

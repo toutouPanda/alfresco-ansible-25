@@ -1,0 +1,61 @@
+---
+ansible_user: ansible
+bssrf_protection_enabled: true
+cs_storage:
+  type: tmpfs
+  device: none
+  options: size=100m,mode=777
+repository_use_custom_keystores: true
+repository_acs_environment:
+  JAVA_OPTS:
+    - -Xms350m
+    - -Xmx900m
+    - -XX:+DisableExplicitGC
+    - -Djava.awt.headless=true
+    - -XX:ReservedCodeCacheSize=128m
+    - $JAVA_OPTS
+  JAVA_TOOL_OPTIONS:
+    - -Dencryption.keystore.type=pkcs12
+    - -Dencryption.cipherAlgorithm=AES/CBC/PKCS5Padding
+    - -Dencryption.keyAlgorithm=AES
+    - -Dencryption.keystore.location=/var/opt/alfresco/content-services/keystore/keystest
+    - -Dmetadata-keystore.password=mp6yc0UD9e
+    - -Dmetadata-keystore.aliases=metadata
+    - -Dmetadata-keystore.metadata.password=mp6yc0UD9e
+    - -Dmetadata-keystore.metadata.algorithm=AES
+    - $JAVA_TOOL_OPTIONS
+
+repository_db_name: "alfresco"
+repository_db_username: "alfresco"
+
+acs_play_proto: "{{ 'https' if repository_use_ssl | bool else 'http' }}"
+acs_play_port: >-
+  {{ ports_cfg.nginx.https if repository_use_ssl | bool else ports_cfg.nginx.http }}
+global_properties:
+  authentication:
+    protection:
+      limit: 3
+      periodSeconds: 20
+  db:
+    url: jdbc:postgresql://localhost/{{ repository_db_name }}
+    driver: org.postgresql.Driver
+    username: "{{ repository_db_username }}"
+    password: "{{ repo_db_password }}"
+  alfresco:
+    host: localhost
+    port: 8080
+    protocol: http
+    cluster:
+      enabled: false
+  share:
+    host: localhost
+    port: 8080
+    protocol: http
+  messaging:
+    broker:
+      url: failover:(tcp://localhost:61616)?timeout=3000
+      username: "{{ activemq_username }}"
+      password: "{{ activemq_password }}"
+
+  aos:
+    baseUrlOverwrite: http://localhost/alfresco/aos

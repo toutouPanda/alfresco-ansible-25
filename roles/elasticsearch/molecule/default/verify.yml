@@ -1,0 +1,38 @@
+- name: Verify
+  hosts: all
+  gather_facts: false
+  tasks:
+
+    - name: Stat the tmp folder for elasticsearch
+      ansible.builtin.stat:
+        path: "/usr/share/elasticsearch/tmp"
+      register: tmp_path_stat
+
+    - name: Assert that tmp folder is setup correctly
+      ansible.builtin.assert:
+        that:
+          - tmp_path_stat.stat.exists
+          - tmp_path_stat.stat.isdir
+          - tmp_path_stat.stat.mode == '0777'
+          - tmp_path_stat.stat.uid == 0
+          - tmp_path_stat.stat.gid == 0
+
+    - name: Gather facts
+      ansible.builtin.setup:
+
+    - name: "Check if port 9200/tcp is listening on {{ ansible_hostname }}"
+      ansible.builtin.wait_for:
+        host: "{{ ansible_hostname }}"
+        port: 9200
+        timeout: 30
+        connect_timeout: 1
+        msg: "Timeout waiting for 9200/tcp to respond"
+
+    - name: Populate service facts
+      ansible.builtin.service_facts:
+
+    - name: Elasticsearch service is up and running
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.services['elasticsearch.service'] is defined
+          - ansible_facts.services['elasticsearch.service'].state == 'running'

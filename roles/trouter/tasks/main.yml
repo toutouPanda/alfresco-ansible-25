@@ -1,0 +1,100 @@
+---
+# tasks file for Transformation Router
+- name: Include OS specific variables
+  ansible.builtin.include_vars: "{{ item }}"
+  loop: "{{ lookup('first_found', os_fallback, errors='ignore', wantlist=True) }}"
+
+- name: Install T-Router
+  become: true
+  block:
+    - name: Ensure a list of packages installed
+      ansible.builtin.package:
+        name: "{{ trouter_utils }}"
+        state: present
+
+    - name: Create transform services folder
+      ansible.builtin.file:
+        path: "{{ ats_home }}/pipelines"
+        state: directory
+        owner: "{{ username }}"
+        group: "{{ group_name }}"
+        mode: "0755"
+
+    - name: Delete T-Router startup script
+      ansible.builtin.file:
+        path: "{{ binaries_folder }}/ats-atr.sh"
+        state: absent
+
+    - name: Copy BSSRF enabled pipeline transformers
+      ansible.builtin.copy:
+        content: "{{ bssrf_pipelines | to_nice_json }}"
+        dest: "{{ ats_home }}/pipelines/0200-html-via-txt.json"
+        owner: "{{ username }}"
+        group: "{{ group_name }}"
+        mode: "0640"
+      when: bssrf_protection_enabled
+      notify:
+        - Restart-trouter
+
+    - name: Create log file with correct permissions
+      ansible.builtin.file:
+        path: "{{ logs_folder }}/ats-atr.log"
+        state: touch
+        mode: "0640"
+        owner: "{{ username }}"
+        group: "{{ group_name }}"
+        access_time: preserve
+        modification_time: preserve
+
+    - name: Add alfresco-transform-router service
+      ansible.builtin.template:
+        src: alfresco-transform-router.service.j2
+        dest: "/etc/systemd/system/alfresco-transform-router.service"
+        owner: "{{ username }}"
+        group: "{{ group_name }}"
+        mode: "0644"
+      notify:
+        - Wait-for-aio
+        - Enable-trouter
+        - Restart-trouter
+
+- name: Configure Trouter mTLS authentication
+  when: trouter_ats_keystore
+  notify:
+    - Restart-trouter
+  block:
+    - name: Instanciate Java keystore
+      ansible.builtin.include_role:
+        name: ../roles/java
+        tasks_from: keystores
+      vars:
+        java_keystore: "{{ trouter_ats_keystore }}"
+
+    - name: Add AIO config mTLS config file
+      become: true
+      ansible.builtin.template:
+        src: mtls.properties.j2
+        dest: "{{ ats_home }}/atr-mtls.properties"
+        owner: "{{ username }}"
+        group: "{{ group_name }}"
+        mode: "0600"
+
+- name: Download {{ trouter_artifact_name }}-{{ trouter_version }}.jar
+  become: true
+  ansible.builtin.get_url:
+    url: "{{ trouter_archive_url }}"
+    dest: "{{ ats_home }}/{{ trouter_artifact_name }}-{{ trouter_version }}.jar"
+    checksum: "{{ trouter_archive_checksum }}"
+    owner: "{{ username }}"
+    group: "{{ group_name }}"
+    mode: 'u=rwx,g=rwx,o=rx'
+    url_username: "{{ trouter_archive_username }}"
+    url_password: "{{ trouter_archive_password }}"
+    timeout: 570
+
+- name: Check if service restart is needed
+  ansible.builtin.debug:
+    msg: triggering service restart
+  when: java_needs_restart
+  changed_when: true
+  notify: Restart-trouter

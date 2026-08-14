@@ -1,0 +1,16 @@
+---
+# handlers file for search
+- name: Enable-search
+  become: true
+  ansible.builtin.service:
+    name: alfresco-search
+    enabled: true
+    daemon_reload: true
+
+- name: Restart-search
+  become: true
+  throttle: 1
+  ansible.builtin.service:
+    name: alfresco-search
+    state: restarted
+    daemon_reload: true

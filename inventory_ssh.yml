@@ -1,0 +1,104 @@
+---
+all:
+  vars:
+    # Each ssh variable below can be moved to groups (all.children.*.vars) or
+    # hosts (all.children.group.hosts.*) sections if they are different for each
+    # host. precedence; hosts_vars > groups_vars > global_vars. more details:
+    # https://docs.ansible.com/ansible/latest/user_guide/intro_inventory.html#adding-variables-to-inventory
+    ansible_connection: ssh
+    ansible_user: root
+    # Comment if no SSH key is in use and add `-k` on the command line instead
+    # (or `-K`in case sudo requires a password)
+    ansible_private_key_file: "/path/to/ssh_key.rsa"
+
+  children:
+    database:
+      hosts:
+        database_1:
+          ansible_host: targetIP
+
+    repository:
+      hosts:
+        repository_1:
+          ansible_host: targetIP
+
+    activemq:
+      hosts:
+        activemq_1:
+          ansible_host: targetIP
+
+    # Solr search engine (an alternative to Enterprise Search, and the only available option for the Community edition)
+    search:
+      hosts:
+        # search_1:
+        #   ansible_host: targetIP
+
+    # Enterprise Search (default search engine - not available in Community edition)
+    search_enterprise:
+      hosts:
+        search_1:
+          ansible_host: targetIP
+    elasticsearch:
+      hosts:
+        search_1:
+            ansible_host: targetIP
+
+    # Keycloak SSO support (optional)
+    identity:
+      hosts:
+
+    nginx:
+      hosts:
+        nginx_1:
+          ansible_host: targetIP
+
+    acc:
+      hosts:
+        acc_1:
+          ansible_host: targetIP
+
+    adw:
+      hosts:
+        adw_1:
+          ansible_host: targetIP
+
+    transformers:
+      hosts:
+        transformers_1:
+          ansible_host: targetIP
+
+    syncservice:
+      hosts:
+        syncservice_1:
+          ansible_host: targetIP
+
+    audit_storage:
+      hosts:
+        audit_storage_1:
+          ansible_host: targetIP
+
+    other_repo_clients:
+      hosts:
+
+    trusted_resource_consumers:
+      children:
+        repository:
+        nginx:
+        adw:
+        other_repo_clients:
+
+    external_activemq:
+      hosts:
+
+    external_elasticsearch:
+      hosts:
+
+    external_identity:
+      hosts:
+
+    external:
+      children:
+        external_activemq:
+        external_elasticsearch:
+        external_identity:
+        other_repo_clients:

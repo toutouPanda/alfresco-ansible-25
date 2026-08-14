@@ -1,0 +1,53 @@
+---
+dependency:
+  name: galaxy
+driver:
+  name: docker
+platforms:
+  - name: instance
+    image: $MOLECULE_ROLE_IMAGE
+    dockerfile: ../../tests/molecule/Dockerfile-noprivs.j2
+    command: "/lib/systemd/systemd"
+    privileged: true
+    tmpfs:
+      - /run
+      - /run/lock
+      - /tmp
+    volume_mounts:
+      - "/sys/fs/cgroup:/sys/fs/cgroup:ro"
+    groups:
+      - database
+      - activemq
+      - elasticsearch
+      - transformers
+      - repository
+      - search_enterprise
+      - trusted_resource_consumers
+      - syncservice
+      - acc
+      - adw
+      - nginx
+      - audit_storage
+      - hxi
+    published_ports:
+      - 0.0.0.0:443:443/tcp
+      - 0.0.0.0:8083:8083/tcp
+      - 0.0.0.0:9200:9200/tcp
+
+provisioner:
+  name: ansible
+  config_options:
+    defaults:
+      pipelining: true
+  ansible_args:
+    - -e
+    - "@../../tests/test-ssl.yml"
+  inventory:
+    links:
+      host_vars: host_vars
+  playbooks:
+    prepare: ../default/prepare.yml
+verifier:
+  name: ansible
+  env:
+    MOLECULE_IT_TEST_CONFIG: tests/test-config-aas.json

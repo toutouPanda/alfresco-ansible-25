@@ -1,0 +1,30 @@
+- name: Check connectivity
+  tags:
+    - molecule-idempotence-notest
+  block:
+    # This task needs to be retried in case a previous iteration still listens (default retry of 3 is fine as it aligns with async 10 of listen tasks)
+    - name: Check if {{ checked_port }} already open on {{ delegate_target }}
+      register: r_connect
+      until: not r_connect.failed
+      ansible.builtin.wait_for:
+        host: "127.0.0.1"
+        port: "{{ checked_port }}"
+        state: stopped
+        delay: 0
+        timeout: 2
+        msg: Port {{ checked_port }} is already in use on {{ delegate_target }}/{{ checked_host }}!
+      delegate_to: "{{ delegate_target }}"
+    - name: Start to listen on {{ delegate_target }}:{{ checked_port }}
+      listen_port:
+        port: "{{ checked_port }}"
+      delegate_to: "{{ delegate_target }}"
+      async: 10
+      poll: 0
+    - name: Verify if {{ delegate_target }} is reachable to {{ checked_host }}:{{ checked_port }}
+      ansible.builtin.wait_for:
+        host: "{{ checked_host }}"
+        port: "{{ checked_port }}"
+        state: started
+        delay: 0
+        timeout: 5
+        msg: Port {{ checked_port }} on the {{ delegate_target }}/{{ checked_host }} machine cannot be reached, please check your firewall!

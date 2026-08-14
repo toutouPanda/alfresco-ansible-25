@@ -1,0 +1,27 @@
+---
+- name: Converge
+  hosts: all
+  roles:
+    - role: activemq
+  tasks:
+    - name: Install PostgreSQL
+      ansible.builtin.include_role:
+        name: postgres
+    - name: Configure repository database
+      ansible.builtin.include_role:
+        name: postgres
+        tasks_from: setup_db
+      vars:
+        postgres_db_name: "{{ repository_db_name }}"
+        postgres_db_username: "{{ repository_db_username }}"
+        postgres_db_password: "{{ repo_db_password }}"
+        postgres_db_clients: "{{ groups.repository }}"
+    - name: Install Alfresco repository
+      ansible.builtin.include_role:
+        name: repository
+      vars:
+        repository_properties: "{{ global_properties }}"
+        repository_raw_properties:
+          - ../../configuration_files/alfresco-global.properties
+        repository_nexus_username: "{{ lookup('env', 'NEXUS_USERNAME') }}"
+        repository_nexus_password: "{{ lookup('env', 'NEXUS_PASSWORD') }}"

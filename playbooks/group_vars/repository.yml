@@ -1,0 +1,91 @@
+acs_play_repository_acs_artifact_name: alfresco-content-services-distribution
+acs_play_repository_acs_repository: "{{ nexus_repository.enterprise_releases }}"
+acs_play_repository_acs_archive_url: "{{ acs_play_repository_acs_repository }}/{{ acs_play_repository_acs_artifact_name }}/{{ acs_play_repository_acs_version }}/{{ acs_play_repository_acs_artifact_name }}-{{ acs_play_repository_acs_version }}.zip"
+acs_play_repository_acs_archive_checksum: "sha1:{{ acs_play_repository_acs_archive_url }}.sha1"
+
+acs_play_repository_jdbc_driver_version: "{{ acs_play_jdbc_pg_driver_version }}"
+acs_play_repository_jdbc_driver_url: >-
+  {{ '{0}/{1}/postgresql-{1}.jar'.format(default_jdbc_pg_driver_base_url, acs_play_repository_jdbc_driver_version) }}
+acs_play_repository_jdbc_driver_checksum: "sha1:{{ acs_play_repository_jdbc_driver_url }}.sha1"
+
+acs_play_repository_api_explorer_enabled: true
+acs_play_repository_api_explorer_artifact_name: api-explorer
+acs_play_repository_api_explorer_repository: "{{ nexus_repository.releases }}"
+acs_play_repository_api_explorer_archive_url: "{{ acs_play_repository_api_explorer_repository }}/{{ acs_play_repository_api_explorer_artifact_name }}/{{ acs_play_repository_api_explorer_version }}/{{ acs_play_repository_api_explorer_artifact_name }}-{{ acs_play_repository_api_explorer_version }}.war"
+acs_play_repository_api_explorer_archive_checksum: "sha1:{{ acs_play_repository_api_explorer_archive_url }}.sha1"
+# additional list of war downloads
+acs_play_repository_extra_war_downloads: []
+  # - url: "https://your.repo.com/path/to/your/artifacts/your-war.war"
+  #   checksum: "sha1:https://your.repo.com/path/to/your/artifacts/your-war.war.sha1"
+  #   dest: "{{ repository_content_folder }}/web-server/webapps/your-war.war"
+  #   url_username: your_username_to_repo
+  #   url_password: your_password_to_repo
+
+acs_play_repository_amp_googledrive_repo_artifact_name: alfresco-googledrive-repo-enterprise
+acs_play_repository_amp_googledrive_repo_repository: "{{ nexus_repository.enterprise_releases }}/integrations"
+acs_play_repository_amp_googledrive_repo_archive_url: "{{ acs_play_repository_amp_googledrive_repo_repository }}/{{ acs_play_repository_amp_googledrive_repo_artifact_name }}/{{ acs_play_repository_amp_googledrive_repo_version }}/{{ acs_play_repository_amp_googledrive_repo_artifact_name }}-{{ acs_play_repository_amp_googledrive_repo_version }}.amp"
+
+acs_play_repository_amp_googledrive_share_artifact_name: alfresco-googledrive-share
+acs_play_repository_amp_googledrive_share_repository: "{{ nexus_repository.releases }}/integrations"
+acs_play_repository_amp_googledrive_share_archive_url: "{{ acs_play_repository_amp_googledrive_share_repository }}/{{ acs_play_repository_amp_googledrive_share_artifact_name }}/{{ acs_play_repository_amp_googledrive_share_version }}/{{ acs_play_repository_amp_googledrive_share_artifact_name }}-{{ acs_play_repository_amp_googledrive_share_version }}.amp"
+
+acs_play_repository_amp_device_sync_artifact_name: alfresco-device-sync-repo
+acs_play_repository_amp_device_sync_repository: "{{ nexus_repository.enterprise_releases }}/services/sync"
+acs_play_repository_amp_device_sync_archive_url: "{{ acs_play_repository_amp_device_sync_repository }}/{{ acs_play_repository_amp_device_sync_artifact_name }}/{{ acs_play_repository_amp_device_sync_version }}/{{ acs_play_repository_amp_device_sync_artifact_name }}-{{ acs_play_repository_amp_device_sync_version }}.amp"
+
+acs_play_repository_amp_aos_module_artifact_name: alfresco-aos-module
+acs_play_repository_amp_aos_module_repository: "{{ nexus_repository.releases }}/aos-module"
+acs_play_repository_amp_aos_module_archive_url: "{{ acs_play_repository_amp_aos_module_repository }}/{{ acs_play_repository_amp_aos_module_artifact_name }}/{{ acs_play_repository_amp_aos_module_version }}/{{ acs_play_repository_amp_aos_module_artifact_name }}-{{ acs_play_repository_amp_aos_module_version }}.amp"
+
+# additional list of amp downloads
+acs_play_repository_extra_amp_downloads: []
+  # - url: "https://your.repo.com/path/to/your/artifacts/your-amp.amp"
+  #   name: your-amp # optional, name is used for upgrade checks
+  #   version: 1.0.0 # optional, version is used for upgrade checks
+  #   checksum: "sha1:2aae6c35c94fcfb415dbe95f408b9ce91ee846ed"
+  #   dest: "{{ repository_content_folder }}/<amps_repo|amps_share>/your-amp.amp"
+  #   url_username: your_username_to_repo
+  #   url_password: your_password_to_repo
+
+# To enable clustering you need to describe the shared contentstore.
+# Any storage type can be used as long as it can be mounted by the target hosts
+# using the mount(8) command.  # For more details about configuring a shared
+# contentstore for cluster see the
+# [storage_doc](https://github.com/Alfresco/alfresco-ansible-deployment/blob/master/docs/shared-contentstore.md)
+#
+# cs_storage:
+#   type: nfs
+#   device: nas.infra.local:/exports/contentstore
+#   # as in `mount -o` options
+#   options: _netdev,noatime,nodiratime
+
+acs_play_proto: "{{ 'https' if acs_play_use_ssl | bool else 'http' }}"
+acs_play_port: >-
+  {{ ports_cfg.nginx.https if acs_play_use_ssl | bool else ports_cfg.nginx.http }}
+global_properties:
+  db:
+    url: >-
+      {{ acs_play_computed_repo_db_url }}
+    driver: "{{ acs_play_repo_db_driver }}"
+    username: "{{ acs_play_repo_db_username }}"
+    password: "{{ repo_db_password }}"
+  alfresco:
+    host: "{{ acs_play_fqdn_alfresco | default(acs_play_known_urls[0] | urlsplit('hostname')) | default(nginx_host) }}"
+    port: "{{ acs_play_port }}"
+    protocol: "{{ acs_play_proto }}"
+    cluster:
+      enabled: "{{ (groups['repository'] | length > 1 and not (repository_cluster_keepoff | bool)) | lower }}"
+  share:
+    host: "{{ acs_play_fqdn_alfresco | default(acs_play_known_urls[0] | urlsplit('hostname')) | default(nginx_host) }}"
+    port: "{{ acs_play_port }}"
+    protocol: "{{ acs_play_proto }}"
+  messaging:
+    broker:
+      url: failover:({{ activemq_transport }}://{{ activemq_host }}:{{ ports_cfg.activemq[activemq_protocol] }})?timeout=3000
+      username: "{{ activemq_username }}"
+      password: "{{ activemq_password }}"
+  aos:
+    baseUrlOverwrite: >-
+      {{ acs_play_proto }}://{{ acs_play_fqdn_alfresco | default(nginx_host) }}:{{ acs_play_port }}/alfresco/aos
+properties_snippets:
+  - ../../configuration_files/alfresco-global.properties

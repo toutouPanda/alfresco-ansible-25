@@ -1,0 +1,7 @@
+---
+- name: Converge
+  hosts: all
+  tasks:
+    - name: "Include nginx"
+      ansible.builtin.include_role:
+        name: "nginx"

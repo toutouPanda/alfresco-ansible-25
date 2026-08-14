@@ -1,0 +1,12 @@
+---
+# handlers file for sfs
+- name: Enable-sfs
+  become: true
+  ansible.builtin.service:
+    name: alfresco-shared-fs
+    enabled: true
+    daemon_reload: true
+
+- name: Restart-sfs
+  ansible.builtin.include_tasks:
+    file: restart.yml
