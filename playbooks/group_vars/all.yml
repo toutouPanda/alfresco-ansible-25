@@ -13,6 +13,14 @@ acs_play_major_version: 25
 
 acs_play_default_java_version: 17.0.18+8
 
+# Checksum litteral de OpenJDK17U-jdk_x64_linux_hotspot_17.0.18_8.tar.gz.
+# Par defaut le role java va chercher "sha256:{{ java_url }}.sha256.txt", donc une
+# SECONDE requete vers github.com. En figeant la valeur ici on supprime cette
+# dependance : si le tarball est pre-depose dans /tmp/ansible_artefacts avec ce
+# checksum, get_url ne sort pas du tout sur Internet.
+# Valeur relevee sur la release Adoptium jdk-17.0.18+8 (193 062 224 octets).
+java_checksum: "sha256:0c94cbb54325c40dcf026143eb621562017db5525727f2d9131a11250f72c450"
+
 artifacts_repositories:
   enterprise:
     base_url: "https://artifacts.alfresco.com/nexus/content"

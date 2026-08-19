@@ -105,10 +105,11 @@ export NEXUS_PASSWORD="<votre-mot-de-passe>"
 `playbooks/group_vars/all.yml` est **déjà renseigné** avec vos valeurs :
 
 ```yaml
-acs_play_fqdn_alfresco: "web-ged-pr01"
+acs_play_fqdn_alfresco: "10.75.0.114"
 acs_play_known_urls:
-  - "http://web-ged-pr01"
   - "http://10.75.0.114"
+  - "http://web-ger-pr01"
+  - "http://web-ger-pr01.rivp-groupe.net"
 
 acs_sqlserver_host: "sql-infra22pr01.rivp-groupe.net"
 acs_sqlserver_instance: "ALFRESCO"
@@ -121,9 +122,12 @@ Deux points à trancher :
 - **`acs_sqlserver_port`** — dès que le DBA donne le port TCP statique de l'instance
   `ALFRESCO`, le renseigner ici (la requête de l'étape 7 le retourne). L'URL bascule
   alors automatiquement en `host:port` et `instanceName` est retiré.
-- **`acs_play_fqdn_alfresco`** — si `web-ged-pr01` ne résout pas en DNS depuis les
-  postes clients, remplacer par `10.75.0.114`. Les deux URL restent acceptées par
-  Share (CORS) grâce à `acs_play_known_urls`.
+- **`acs_play_fqdn_alfresco`** — sur l'IP car le nom est temporaire et ne résout
+  pas vers l'IPv4 (`ping web-ger-pr01-rivp-groupe-net` renvoie une IPv6 link-local).
+  Les variantes de nom sont déjà autorisées dans `acs_play_known_urls` : quand le
+  nom DNS définitif existera, une seule ligne sera à changer.
+  Cohérent avec `ansible_default_ipv4` = 10.75.0.114 (route par défaut via ens33),
+  qui alimente `nginx_host`, `repo_host`, `solr_host`, `activemq_host`, etc.
 
 Déposer la licence Enterprise :
 
@@ -246,7 +250,7 @@ Emplacements installés :
   Browser en UDP 1434** — si ce port est filtré, la connexion échoue avec
   `The TCP/IP connection to the host ... has failed`.
 - **Aucun hôte dans `database`** : c'est voulu. Ajouter un hôte réinstallerait PostgreSQL en local.
-- **Résolution de `web-ged-pr01`** : vérifier que la VM se résout elle-même
-  (`getent hosts web-ged-pr01`). Sinon ajouter `10.75.0.114 web-ged-pr01` dans
-  `/etc/hosts` — `acs_play_fqdn_alfresco` sert à construire les liens générés
-  par le repository (`alfresco.host`, `share.host`, `aos.baseUrlOverwrite`).
+- **Deuxième interface** : la VM porte aussi `ens35` / 10.75.22.77. La route par
+  défaut passe par `ens33` / 10.75.0.114, donc `ansible_default_ipv4` vaut bien
+  10.75.0.114 et aucune surcharge de `*_host` n'est nécessaire. À revérifier si
+  le routage change.
