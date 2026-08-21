@@ -69,8 +69,8 @@ acs_sqlserver_instance: "ALFRESCO"
 # supprime la dependance a SQL Browser / UDP 1434.
 acs_sqlserver_port: ""
 acs_sqlserver_db_name: "SQL_PRALFRESCO"
-# >>> A CONFIRMER avec le DBA si le login suit une convention de nommage <<<
-acs_sqlserver_db_username: "alfresco"
+# Login SQL fourni par le DBA (convention de nommage RIVP).
+acs_sqlserver_db_username: "sqlcnx_pralfresco"
 # mssql-jdbc >= 10 active TLS par defaut. On garde encrypt=false tant que le
 # certificat de SQL Server n'est pas approuve par le truststore de la JVM.
 # Pour du TLS : "lockTimeout=1000;encrypt=true;trustServerCertificate=true;applicationName=Alfresco"
