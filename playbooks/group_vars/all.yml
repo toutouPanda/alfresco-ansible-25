@@ -5,8 +5,15 @@
 # Toutes les URL par lesquelles les utilisateurs peuvent atteindre ce serveur.
 # Elles alimentent les origines autorisees CORS/CSRF de Share et d'ADW : une URL
 # absente d'ici donne une IHM Share cassee (appels bloques par le navigateur).
+# Toute URL par laquelle un navigateur peut atteindre Share doit figurer ici,
+# y compris celles des AUTRES noeuds du cluster : la liste alimente
+# csrf.filter.origin / csrf.filter.referer et cors.allowed.origins, et chaque
+# noeud genere ses proprietes a partir de cette meme liste. Une origine absente
+# se traduit par un 403 sur les POST (lecture OK, ecriture refusee).
+# Ajouter ici l'URL du repartiteur de charge le jour ou il existera.
 acs_play_known_urls:
   - "http://10.75.0.114"
+  - "http://10.75.0.115"
   - "http://web-ger-pr01"
   - "http://web-ger-pr01.rivp-groupe.net"
 acs_play_major_version: 25
