@@ -8,9 +8,9 @@
   ansible.builtin.rpm_key:
     key: "{{ item }}"
     state: present
-  loop:
-    - "{{ epel_gpg_key_url }}"
-    - "{{ rpmfusion_gpg_key_url }}"
+  loop: >-
+    {{ [epel_gpg_key_url]
+    + ([rpmfusion_gpg_key_url] if transformers_enable_rpmfusion | bool else []) }}
   register: transformers_rpm_key_result
   retries: "{{ transformers_el_repos_retries }}"
   delay: "{{ transformers_el_repos_delay }}"
@@ -27,9 +27,9 @@
     name: "{{ item }}"
     state: present
     disable_gpg_check: false
-  loop:
-    - "{{ epel_url }}"
-    - "{{ rpmfusion_free_url }}"
+  loop: >-
+    {{ [epel_url]
+    + ([rpmfusion_free_url] if transformers_enable_rpmfusion | bool else []) }}
   register: transformers_dnf_repos_result
   retries: "{{ transformers_el_repos_retries }}"
   delay: "{{ transformers_el_repos_delay }}"

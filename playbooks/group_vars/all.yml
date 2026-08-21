@@ -106,6 +106,17 @@ acs_play_fqdn_alfresco: "10.75.0.114"
 ansible_installation_status_file: "/opt/alfresco/.ansible_alfresco_components.status"
 autogen_unsecure_secrets: false
 
+# RPM Fusion est un depot communautaire tiers, hors perimetre Red Hat, que le
+# role transformers ajoute par defaut sur les plateformes EL. Aucun paquet
+# installe par ce playbook n'en provient : transformers_utils vient de
+# BaseOS/AppStream et d'EPEL, ImageMagick est un RPM telecharge depuis les
+# artefacts Alfresco, et ghostscript est desactive
+# (transformers_include_ghostscript: false).
+# Son metalink est servi en HTTP simple (http://mirrors.rpmfusion.org), filtre
+# par le pare-feu, ce qui faisait echouer dnf sur TOUTE transaction -- dnf
+# refuse d'operer des qu'un depot active ne repond pas.
+transformers_enable_rpmfusion: false
+
 # Community Edition vars
 acs_play_community_repository_acs_artifact_name: alfresco-content-services-community-distribution
 acs_play_community_repository_acs_repository: "{{ nexus_repository.releases }}"

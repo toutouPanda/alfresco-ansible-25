@@ -13,6 +13,10 @@ transformers_truststore_type: "PKCS12"
 transformers_ats_keystore: {}
 transformers_include_ghostscript: false
 
+# Ajout du depot tiers RPM Fusion sur les plateformes EL. Comportement amont :
+# true. Voir playbooks/group_vars/all.yml pour la valeur retenue ici.
+transformers_enable_rpmfusion: true
+
 transformers_acs_is_enterprise: true
 transformers_libreoffice_artifact_name: libreoffice-dist
 transformers_libreoffice_repository: https://artifacts.alfresco.com/nexus/content/repositories/thirdparty/org/libreoffice
